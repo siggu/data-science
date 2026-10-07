@@ -228,6 +228,8 @@ def _norm_value(v):
         if x == 0:
             return 0
         return int(x) if x.is_integer() else x
+    if isinstance(v, str) and len(v) == 19 and v.endswith(" 00:00:00"):
+        return v[:10]  # 자정 타임스탬프 = 날짜 ('2025-01-01 00:00:00' == '2025-01-01')
     return v
 
 

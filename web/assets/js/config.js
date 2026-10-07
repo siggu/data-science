@@ -30,14 +30,22 @@ try {
 
 export const LIBS = { ...(useLocal ? local : cdn), versions: VERSIONS, mode: useLocal ? 'local' : 'cdn' };
 
-// 연습용 샘플 테이블 (web/data/*.csv)
+// 연습용 샘플 테이블 (web/data/*.csv) — columns 는 tests/validate_content.py 가 CSV 헤더와 일치하는지 검사합니다
 export const TABLES = [
-  { name: 'users', desc: '회원 (가입일, 국가, 디바이스, 유입 채널, 연령대)' },
-  { name: 'events', desc: '앱/웹 행동 로그 (visit → view_item → add_to_cart → checkout → purchase)' },
-  { name: 'orders', desc: '주문 (상태, 결제수단, 쿠폰, 할인액, 결제금액)' },
-  { name: 'order_items', desc: '주문 상세 (상품, 수량, 단가)' },
-  { name: 'products', desc: '상품 (카테고리, 가격)' },
-  { name: 'ab_test', desc: 'A/B 테스트 배정·전환 (checkout_button_v2, free_shipping_banner)' },
-  { name: 'employees', desc: '직원 (부서, 매니저, 급여) — 고전 SQL 면접 문제용' },
-  { name: 'departments', desc: '부서' },
+  { name: 'users', desc: '회원 (가입일, 국가, 디바이스, 유입 채널, 연령대)',
+    columns: ['user_id', 'signup_date', 'country', 'device', 'channel', 'age_group', 'marketing_opt_in'] },
+  { name: 'events', desc: '앱/웹 행동 로그 (visit → view_item → add_to_cart → checkout → purchase)',
+    columns: ['event_id', 'session_id', 'user_id', 'event_ts', 'event_type', 'platform', 'app_version', 'product_id'] },
+  { name: 'orders', desc: '주문 (상태, 결제수단, 쿠폰, 할인액, 결제금액)',
+    columns: ['order_id', 'user_id', 'order_ts', 'status', 'payment_method', 'coupon_code', 'discount_amount', 'total_amount'] },
+  { name: 'order_items', desc: '주문 상세 (상품, 수량, 단가)',
+    columns: ['order_item_id', 'order_id', 'product_id', 'quantity', 'unit_price'] },
+  { name: 'products', desc: '상품 (카테고리, 가격)',
+    columns: ['product_id', 'product_name', 'category', 'price'] },
+  { name: 'ab_test', desc: 'A/B 테스트 배정·전환 (checkout_button_v2, free_shipping_banner)',
+    columns: ['experiment', 'user_id', 'variant', 'assigned_date', 'converted', 'revenue'] },
+  { name: 'employees', desc: '직원 (부서, 매니저, 급여) — 고전 SQL 면접 문제용',
+    columns: ['emp_id', 'name', 'dept_id', 'manager_id', 'salary', 'hire_date'] },
+  { name: 'departments', desc: '부서',
+    columns: ['dept_id', 'dept_name', 'location'] },
 ];

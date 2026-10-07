@@ -29,7 +29,8 @@ export function escapeHtml(s) {
 function inline(s) {
   // 코드 스팬을 먼저 빼두고 나머지에 강조/링크 적용
   const codes = [];
-  s = s.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+  // ``a `b` c`` 처럼 두 개의 백틱으로 감싸면 안에 백틱을 쓸 수 있습니다
+  s = s.replace(/``\s?(.+?)\s?``(?!`)|`([^`]+)`/g, (_, c2, c1) => { codes.push(c2 ?? c1); return `\u0000${codes.length - 1}\u0000`; });
   s = escapeHtml(s)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
@@ -37,7 +38,11 @@ function inline(s) {
       const ext = /^https?:/.test(u);
       return `<a href="${u}"${ext ? ' target="_blank" rel="noopener"' : ''}>${t}</a>`;
     });
-  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${escapeHtml(codes[+i])}</code>`);
+  // 짧은 코드 조각(공백 포함 20자 이하)은 중간에서 줄바꿈되지 않게
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => {
+    const c = codes[+i];
+    return `<code${c.length <= 20 && /\s/.test(c) ? ' class="nw"' : ''}>${escapeHtml(c)}</code>`;
+  });
 }
 
 /** 콘텐츠 작성용 경량 마크다운 (제목, 목록, 표, 코드블록, 인용, 강조, 링크) */
@@ -158,8 +163,10 @@ export function resultTable(data, { limit = 500 } = {}) {
   const grid = h('div', { class: 'result-grid' });
   const table = h('table');
   const tbody = h('tbody');
+  // 값이 모두 숫자인 컬럼은 머리글도 오른쪽 정렬 (값과 줄 맞춤)
+  const isNum = columns.map((_, ci) => data.rows.some((r) => typeof r[ci] === 'number') && data.rows.every((r) => r[ci] == null || typeof r[ci] === 'number'));
   const ths = columns.map((c, ci) => h('th', {
-    class: 'sortable', title: '클릭해서 정렬',
+    class: isNum[ci] ? 'sortable num' : 'sortable', title: '클릭해서 정렬',
     onclick: () => {
       sort = sort.col === ci ? { col: ci, dir: (sort.dir + 1) % 3 } : { col: ci, dir: 1 };
       if (!sort.dir) view = original;
@@ -219,7 +226,8 @@ export function normalizeRows(rows, orderMatters) {
     if (typeof v === 'boolean') return v ? 1 : 0;
     if (typeof v === 'number') { const x = Math.round(v * 1e4) / 1e4; return Object.is(x, -0) ? 0 : x; }
     if (v instanceof Date) return v.toISOString().replace('T', ' ').replace(/\.000Z$/, '').replace(/ 00:00:00$/, '');
-    return String(v);
+    // 자정 타임스탬프 문자열 = 날짜 ('2025-01-01 00:00:00' == '2025-01-01')
+    return String(v).replace(/^(\d{4}-\d{2}-\d{2})[ T]00:00:00(?:\.0+)?$/, '$1');
   }));
   const keyed = norm.map((r) => JSON.stringify(r));
   if (!orderMatters) keyed.sort();

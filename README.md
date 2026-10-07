@@ -80,7 +80,7 @@ docker compose up --build
 
 케이스 스터디용으로 **의도적으로 심어둔 패턴**:
 - 2025-10-14 ~ 10-24: Android 앱 5.2.0 배포 후 Android DAU가 약 50% 급감 (DAU 하락 원인 분석)
-- paid_search 유입 유저는 첫 전환은 빠르지만 28일 리텐션이 낮음 (채널 LTV 비교)
+- paid_search 유입 유저는 구매하는 경우 첫 구매가 빠르지만 28일 리텐션(약 37%)이 organic(약 84%)의 절반 이하 (채널 LTV 비교)
 - `checkout_button_v2`: 실제 효과 있음 (p ≈ 0.009) / `free_shipping_banner`: **SRM** 발생 (p < 0.0001)
 - 주말·12월 트래픽 증가, 급여 동점 (RANK와 DENSE_RANK 비교)
 

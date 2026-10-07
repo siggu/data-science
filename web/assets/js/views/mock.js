@@ -189,7 +189,7 @@ export default {
     const coverage = s.answers.reduce((a, x) => a + x.covered, 0) / Math.max(1, s.answers.reduce((a, x) => a + x.total, 0));
     const record = {
       at: new Date().toISOString(), n: s.answers.length, avg: +avg.toFixed(2), coverage: +coverage.toFixed(2),
-      minutes: Math.round((Date.now() - s.startedAt) / 60000),
+      minutes: Math.round((Date.now() - s.startedAt) / 60000), seconds: Math.round((Date.now() - s.startedAt) / 1000),
       byCat: s.answers.reduce((m, a) => { (m[a.cat] = m[a.cat] || []).push(a.rating); return m; }, {}),
     };
     const history = [record, ...store.get('mock:history', [])].slice(0, 30);
@@ -201,10 +201,10 @@ export default {
       h('div', { class: 'stack', style: { maxWidth: '860px', margin: '0 auto' } },
         h('div', { class: 'card' },
           h('h2', null, '세션 결과'),
-          h('div', { class: 'grid grid-3', style: { marginTop: '10px' } },
+          h('div', { class: 'kpi-row', style: { marginTop: '10px' } },
             h('div', { class: 'kpi' }, h('span', { class: 'v' }, `${avg.toFixed(1)} / 5`), h('span', { class: 'l' }, '평균 자기 평가')),
             h('div', { class: 'kpi' }, h('span', { class: 'v' }, `${Math.round(coverage * 100)}%`), h('span', { class: 'l' }, '핵심 포인트 포함률')),
-            h('div', { class: 'kpi' }, h('span', { class: 'v' }, `${record.minutes}분`), h('span', { class: 'l' }, '소요 시간'))),
+            h('div', { class: 'kpi' }, h('span', { class: 'v' }, record.seconds < 60 ? `${record.seconds}초` : `${Math.floor(record.seconds / 60)}분 ${record.seconds % 60}초`), h('span', { class: 'l' }, '소요 시간'))),
           h('p', { class: 'small muted', style: { marginTop: '12px', marginBottom: 0 } }, '2점 이하로 평가한 질문은 면접 Q&A의 ★ 다시 보기에 자동으로 추가했습니다.')),
         h('div', { class: 'card' },
           h('h3', null, '문항별 결과'),
@@ -212,9 +212,9 @@ export default {
             h('thead', null, h('tr', null, h('th', null, '질문'), h('th', null, '포인트'), h('th', null, '점수'), h('th', null, ''))),
             h('tbody', null, s.answers.map((a) => h('tr', null,
               h('td', null, a.q),
-              h('td', null, `${a.covered}/${a.total}`),
-              h('td', null, String(a.rating)),
-              h('td', null, h('a', { href: `#/interview?q=${a.id}` }, '복습'))))))),
+              h('td', { class: 'nowrap', style: { width: '1%', minWidth: 0 } }, `${a.covered}/${a.total}`),
+              h('td', { class: 'nowrap', style: { width: '1%', minWidth: 0 } }, String(a.rating)),
+              h('td', { class: 'nowrap', style: { width: '1%', minWidth: 0 } }, h('a', { href: `#/interview?q=${a.id}` }, '복습'))))))),
           h('div', { class: 'row', style: { marginTop: '12px' } },
             h('button', { class: 'btn primary', type: 'button', onclick: () => this.start() }, '같은 설정으로 다시'),
             h('button', { class: 'btn', type: 'button', onclick: () => this.renderSetup() }, '설정으로 돌아가기')))));

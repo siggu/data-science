@@ -9,7 +9,7 @@
 데이터에 의도적으로 심어둔 패턴 (케이스 스터디/면접 연습용):
   * 2025-10-14 ~ 10-24: Android 앱 5.2.0 배포 후 Android 세션 급감 (DAU 하락 케이스)
   * 주말(토/일) 트래픽 증가, 12월 연말 시즌 증가
-  * paid_search 유입 유저는 초기 전환은 높지만 리텐션이 낮음
+  * paid_search 유입 유저는 첫 구매가 빠르지만(가입 직후 장바구니 확률↑) 리텐션이 낮음
   * ab_test 'checkout_button_v2': treatment 전환율이 실제로 더 높음
   * ab_test 'free_shipping_banner': 배정 비율 불균형(SRM) 존재
   * employees: 동일 급여(동점) 존재 → RANK / DENSE_RANK 차이 연습

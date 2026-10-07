@@ -5,7 +5,7 @@
 const DATE_FORMATS = [
   ['yyyy-MM-dd HH:mm:ss', '%Y-%m-%d %H:%M:%S'], ['yyyy-MM-dd HH:mm', '%Y-%m-%d %H:%M'], ['yyyy-MM-dd', '%Y-%m-%d'],
   ['yyyy-MM', '%Y-%m'], ['yyyyMMdd', '%Y%m%d'], ['yyyyMM', '%Y%m'], ['yyyy', '%Y'], ['MM', '%m'], ['dd', '%d'],
-  ['HH', '%H'], ['E', '%a'], ['EEEE', '%A'], ['u', '%u'],
+  ['HH', '%H'], ['E', '%a'], ['EEEE', '%A'],
 ];
 
 const dateFormatCase = 'CASE fmt ' +

@@ -66,15 +66,20 @@ export default {
     }, label, count != null ? h('span', { class: 'count' }, count) : null);
     const search = h('input', { type: 'search', placeholder: '키워드 검색 (예: 윈도우, SRM)', value: s.q, 'aria-label': '질문 검색' });
     search.addEventListener('input', debounce(() => { s.q = search.value; this.renderList(); }, 150));
-    this.filterEl.replaceChildren(
-      search,
+    // 좁은 화면에서는 필터를 접어 두고 검색창만 보여 질문 목록이 바로 보이게
+    if (this.filtersOpen == null) this.filtersOpen = !window.matchMedia('(max-width: 900px)').matches;
+    const active = [s.cat !== 'all', s.level !== 'all', s.status !== 'all'].filter(Boolean).length;
+    const more = h('details', { class: 'filter-more', open: this.filtersOpen || null, ontoggle: (e) => { this.filtersOpen = e.target.open; } },
+      h('summary', null, `필터${active ? ` (${active}개 적용)` : ''}`),
+      h('div', { class: 'stack', style: { marginTop: '10px' } },
       h('div', null, h('div', { class: 'small muted', style: { marginBottom: '6px' } }, '카테고리'),
         h('div', { class: 'row' }, chip('cat', 'all', '전체', QUESTIONS.length), CATEGORIES.map((c) => chip('cat', c.id, c.name, counts[c.id] || 0)))),
       h('div', null, h('div', { class: 'small muted', style: { marginBottom: '6px' } }, '난이도'),
         h('div', { class: 'row' }, chip('level', 'all', '전체'), Object.entries(LEVELS).map(([k, v]) => chip('level', k, v)))),
       h('div', null, h('div', { class: 'small muted', style: { marginBottom: '6px' } }, '상태'),
         h('div', { class: 'row' }, chip('status', 'all', '전체'), chip('status', 'unknown', '아직'), chip('status', 'known', '익힘'), chip('status', 'bookmarked', '★ 다시 보기'))),
-    );
+    ));
+    this.filterEl.replaceChildren(search, more);
   },
 
   renderList() {

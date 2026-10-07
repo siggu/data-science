@@ -98,12 +98,54 @@ function toggleHelp(force) {
 
 const isTyping = (el) => el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.closest?.('.CodeMirror'));
 
+// 가로 스크롤 탭 바: 선택된 탭이 화면 밖에 있으면 보이도록 스크롤하고, 양끝에 더 있음을 표시
+function revealActiveTabs() {
+  document.querySelectorAll('.view.active .tabs').forEach((bar) => {
+    const on = bar.querySelector('button.on');
+    if (on && on.dataset.revealed !== '1') {
+      on.dataset.revealed = '1';
+      bar.querySelectorAll('button:not(.on)').forEach((b) => delete b.dataset.revealed);
+      const l = on.offsetLeft - bar.offsetLeft, r = l + on.offsetWidth;
+      if (l < bar.scrollLeft || r > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = Math.max(0, l - 24);
+    }
+    edgeFade(bar);
+    bar.dispatchEvent(new Event('scroll'));
+  });
+}
+
+/** 가로 스크롤 영역 양끝에 숨은 항목이 있으면 more-left / more-right 클래스 (CSS에서 흐리게 표시) */
+function edgeFade(bar) {
+  if (bar.dataset.fade) return;
+  bar.dataset.fade = '1';
+  const upd = () => {
+    bar.classList.toggle('more-left', bar.scrollLeft > 2);
+    bar.classList.toggle('more-right', bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 2);
+  };
+  bar.addEventListener('scroll', upd, { passive: true });
+  window.addEventListener('resize', upd);
+  requestAnimationFrame(upd);
+}
+
 export function initEnhancements() {
   const main = document.getElementById('main');
   scan(main);
   new MutationObserver((muts) => {
     for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1) { if (n.tagName === 'PRE') decoratePre(n); else scan(n); }
+    revealActiveTabs();
   }).observe(main, { childList: true, subtree: true });
+  window.addEventListener('hashchange', () => requestAnimationFrame(revealActiveTabs));
+  main.addEventListener('click', (e) => { if (e.target.closest?.('.tabs')) requestAnimationFrame(revealActiveTabs); });
+
+  const nav = document.getElementById('nav');
+  if (nav) { edgeFade(nav); window.addEventListener('hashchange', () => setTimeout(() => nav.dispatchEvent(new Event('scroll')), 50)); }
+
+  // 헤더 높이 → --header-h (sticky 요소 위치, 스크롤 여백 계산용)
+  const header = document.querySelector('.app-header');
+  if (header) {
+    const setH = () => document.documentElement.style.setProperty('--header-h', `${Math.round(header.getBoundingClientRect().height)}px`);
+    new ResizeObserver(setH).observe(header);
+    setH();
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal) { toggleHelp(); return; }

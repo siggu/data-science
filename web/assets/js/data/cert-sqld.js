@@ -14,8 +14,8 @@ export const SQLD = {
     pass: '총점 60점 이상 + 과목별 40% 이상 (미만 시 과락)',
   },
   schedule: [
-    { round: '제60회', apply: '-', exam: '2026-03-07', result: '-' },
-    { round: '제61회', apply: '-', exam: '2026-05-31', result: '-' },
+    { round: '제60회', apply: '2026-02-02 ~ 02-06', exam: '2026-03-07', result: '2026-03-27' },
+    { round: '제61회', apply: '2026-04-27 ~ 05-01', exam: '2026-05-31', result: '2026-06-19' },
     { round: '제62회', apply: '2026-07-20 ~ 07-24', exam: '2026-08-22', result: '2026-09-11' },
     { round: '제63회', apply: '2026-10-12 ~ 10-16', exam: '2026-11-14', result: '2026-12-04' },
   ],
@@ -43,7 +43,7 @@ export const SQLD = {
 
         ### 속성 (Attribute)
         - 특성 분류: **기본**(업무에서 도출) / **설계**(코드, 일련번호 등 설계 시 생성) / **파생**(계산값 — 데이터 정합성 관리 필요, 최소화)
-        - 구성 방식: PK 속성, FK 속성, 일반 속성 / 단일 vs 복합, 단일값 vs 다중값
+        - 구성 방식: PK/FK/일반 속성 · 분해 여부: 단일/복합 · 값 개수: 단일값/다중값
         - **도메인**: 속성이 가질 수 있는 값의 범위 (데이터 타입, 크기, 제약)
 
         ### 관계 (Relationship)
@@ -96,7 +96,7 @@ export const SQLD = {
         - 정렬: **Oracle은 NULL을 가장 큰 값**(ASC 시 마지막), SQL Server는 가장 작은 값
 
         ### JOIN
-        - EQUI / NON-EQUI(BETWEEN 등) / NATURAL(같은 이름 컬럼, 별칭 접두사 사용 불가) / USING / CROSS(카티션 곱)
+        - EQUI / NON-EQUI(BETWEEN 등) / NATURAL(같은 이름 컬럼, 별칭 접두사 사용 불가) / USING / CROSS(카테시안 곱(Cartesian Product))
         - OUTER: LEFT/RIGHT/FULL, Oracle 구문 \`WHERE a.id = b.id(+)\` → (+) 반대쪽이 기준(LEFT)
 
         ### 서브쿼리
@@ -105,7 +105,7 @@ export const SQLD = {
         - \`> ALL(…)\` = 최댓값보다 큼, \`> ANY(…)\` = 최솟값보다 큼
 
         ### 집합 연산자
-        UNION(중복 제거 + 정렬 효과) / UNION ALL(중복 포함) / INTERSECT / MINUS(Oracle) = EXCEPT(SQL Server). 컬럼 수·타입이 같아야 하며 컬럼명은 **첫 번째 SELECT 기준**.
+        UNION(중복 제거, 결과 순서는 보장되지 않으므로 정렬은 마지막 ORDER BY로) / UNION ALL(중복 포함) / INTERSECT / MINUS(Oracle) = EXCEPT(SQL Server). 컬럼 수·타입이 같아야 하며 컬럼명은 **첫 번째 SELECT 기준**.
 
         ### 그룹 함수 (소계)
         - \`ROLLUP(A, B)\`: (A,B), (A), 전체 → **인자 순서 중요**
@@ -133,12 +133,12 @@ export const SQLD = {
         - \`SAVEPOINT sp1\` → \`ROLLBACK TO sp1\`
         - 제약조건: PRIMARY KEY(UNIQUE + NOT NULL, 테이블당 1개), UNIQUE(NULL 허용), NOT NULL, CHECK, FOREIGN KEY(\`ON DELETE CASCADE / SET NULL\`)
         - \`GRANT SELECT ON t TO user [WITH GRANT OPTION]\`, \`REVOKE\`, ROLE로 권한 묶음 관리
-        - VIEW: 보안성, 편리성, 독립성 / 자체 데이터 없음 / ALTER VIEW로 정의 변경 불가 (재생성)
+        - VIEW: 보안성, 편리성, 독립성 / 자체 데이터 없음 / ALTER VIEW로 정의 변경 불가 → CREATE OR REPLACE VIEW로 재정의
 
         ### Databricks/DuckDB와 다른 점 (실무자 주의)
         | Oracle (시험) | Databricks / DuckDB |
         |---|---|
-        | \`NVL\`, \`DECODE\` | \`coalesce\`/\`nvl\`, \`CASE\` |
+        | \`NVL\`, \`DECODE\` | \`coalesce\`/\`ifnull\`, \`CASE\` (Databricks는 \`nvl\`·\`decode\`도 지원, 이 사이트는 \`nvl\` 호환 매크로 제공) |
         | \`ROWNUM <= 3\` | \`LIMIT 3\` |
         | \`a.id = b.id(+)\` | \`LEFT JOIN\` |
         | \`MINUS\` | \`EXCEPT\` |
@@ -153,12 +153,12 @@ export const SQLD = {
     { id: 'sqld-m03', subject: 0, q: '3단계 스키마 구조에서 "개념 스키마가 변경되어도 외부 스키마(응용 프로그램)에 영향을 주지 않는 성질"은?', options: ['물리적 독립성', '논리적 독립성', '데이터 무결성', '데이터 일관성'], answer: 1, explain: '논리적 독립성은 개념 스키마 변경이 외부 스키마에 영향을 주지 않는 것, 물리적 독립성은 내부 스키마(저장 구조) 변경이 개념 스키마에 영향을 주지 않는 것입니다.' },
     { id: 'sqld-m04', subject: 0, q: '엔터티의 특징으로 옳지 않은 것은?', options: ['업무에서 필요하고 관리하고자 하는 정보여야 한다.', '유일한 식별자에 의해 식별이 가능해야 한다.', '영속적으로 존재하는 인스턴스가 1개 이상이면 된다.', '다른 엔터티와 최소 1개 이상의 관계가 있어야 한다.'], answer: 2, explain: '엔터티는 영속적으로 존재하는 인스턴스의 집합으로, 인스턴스가 **2개 이상**이어야 합니다. 인스턴스가 하나뿐이면 엔터티로 보기 어렵습니다.' },
     { id: 'sqld-m05', subject: 0, q: '발생 시점에 따른 엔터티 분류에서 "주문내역", "이력"처럼 두 개 이상의 부모 엔터티로부터 발생하고 자주 내용이 바뀌거나 데이터가 증가하는 엔터티는?', options: ['기본 엔터티', '중심 엔터티', '행위 엔터티', '개념 엔터티'], answer: 2, explain: '행위 엔터티는 2개 이상의 부모 엔터티로부터 발생하며 데이터 양이 많고 변경이 잦습니다. 기본 엔터티는 독립적으로 생성(사원, 상품), 중심 엔터티는 기본 엔터티에서 발생해 업무의 중심 역할(주문, 계약)을 합니다.' },
-    { id: 'sqld-m06', subject: 0, q: '다음 중 "파생 속성"에 대한 설명으로 옳은 것은?', options: ['업무로부터 추출한 일반적인 속성이다.', '업무상 필요하지 않지만 설계 시 일련번호처럼 새로 만든 속성이다.', '다른 속성으로부터 계산되거나 변형되어 생성된 속성으로, 가급적 적게 정의하는 것이 좋다.', '여러 개의 값을 동시에 가질 수 있는 속성이다.'], answer: 2, explain: '파생 속성은 다른 속성의 값으로 계산된 속성(예: 총주문금액)입니다. 원본이 바뀔 때 함께 갱신해야 해서 정합성 관리 부담이 있으므로 최소화합니다. "업무로부터 추출한 속성"은 기본 속성, "설계 시 새로 만든 일련번호"는 설계 속성, "여러 값을 동시에 갖는 속성"은 다중값 속성입니다.' },
+    { id: "sqld-m06", subject: 0, q: "다음 중 \"파생 속성\"에 대한 설명으로 옳은 것은?", options: ["업무로부터 추출한 일반적인 속성이다.","업무상 필요하지 않지만 설계 시 일련번호처럼 새로 만든 속성이다.","다른 속성으로부터 계산·변형되어 생성된 속성이다.","여러 개의 값을 동시에 가질 수 있는 속성이다."], answer: 2, explain: "파생 속성은 다른 속성의 값으로 계산된 속성(예: 총주문금액)입니다. 원본이 바뀔 때 함께 갱신해야 해서 정합성 관리 부담이 있으므로 최소화합니다. \"업무로부터 추출한 속성\"은 기본 속성, \"설계 시 새로 만든 일련번호\"는 설계 속성, \"여러 값을 동시에 갖는 속성\"은 다중값 속성입니다." },
     { id: 'sqld-m07', subject: 0, q: '관계를 표현할 때 표기하는 요소로 거리가 먼 것은?', options: ['관계명', '관계 차수(Cardinality)', '관계 선택성(Optionality)', '관계 도메인'], answer: 3, explain: '관계 표기법은 관계명, 관계 차수(1:1, 1:M, M:N), 관계 선택성(필수/선택) 세 가지입니다. 도메인은 속성이 가질 수 있는 값의 범위입니다.' },
     { id: 'sqld-m08', subject: 0, q: '주식별자의 특징이 아닌 것은?', options: ['유일성: 모든 인스턴스를 유일하게 구분한다.', '최소성: 유일성을 만족하는 최소한의 속성으로 구성한다.', '불변성: 한 번 지정된 값은 자주 바뀌지 않아야 한다.', '가변성: 업무 변화에 따라 쉽게 바뀔 수 있어야 한다.'], answer: 3, explain: '주식별자의 4가지 특징은 유일성, 최소성, 불변성, 존재성(값이 반드시 존재, NULL 불가)입니다.' },
     { id: 'sqld-m09', subject: 0, q: '식별 관계와 비식별 관계에 대한 설명으로 옳지 않은 것은?', options: ['식별 관계는 부모의 주식별자를 자식의 주식별자 일부로 상속한다.', '식별 관계만으로 연결하면 자식 엔터티의 주식별자 속성 수가 계속 늘어날 수 있다.', '비식별 관계는 부모 없이 자식 데이터가 생성될 수 있는 경우에 사용할 수 있다.', '비식별 관계에서는 부모의 주식별자를 자식이 상속할 수 없다.'], answer: 3, explain: '비식별 관계에서도 부모의 주식별자는 자식에게 상속되지만, 자식의 주식별자가 아닌 **일반 속성(외래키)**으로 상속됩니다.' },
-    { id: 'sqld-m10', subject: 0, q: '[주문상세](주문번호, 상품코드, 수량, 상품명) 테이블에서 PK가 (주문번호, 상품코드)이고 상품명이 상품코드에만 종속될 때, 위반하는 정규형은?', options: ['제1정규형', '제2정규형', '제3정규형', 'BCNF'], answer: 1, explain: '복합키의 일부(상품코드)에만 종속되는 속성(상품명)이 있으면 **부분 함수 종속** → 제2정규형 위반입니다. 상품 테이블로 분리해 해결합니다.' },
-    { id: 'sqld-m11', subject: 0, q: '[사원](사원번호, 부서코드, 부서명)에서 사원번호 → 부서코드, 부서코드 → 부서명 종속이 있다. 이 테이블이 위반하는 정규형과 그 이유는?', options: ['제1정규형 - 반복 그룹 존재', '제2정규형 - 부분 함수 종속', '제3정규형 - 이행 함수 종속', 'BCNF - 후보키가 아닌 결정자 존재'], answer: 2, explain: '사원번호 → 부서코드 → 부서명처럼 기본키가 아닌 속성을 거쳐 종속되는 **이행 함수 종속**은 제3정규형 위반입니다.' },
+    { id: "sqld-m10", subject: 0, q: "[주문상세](주문번호, 상품코드, 수량, 상품명) 테이블에서 PK가 (주문번호, 상품코드)이고 상품명이 상품코드에만 종속될 때, 만족하지 못하는 가장 낮은 단계의 정규형은?", options: ["제1정규형","제2정규형","제3정규형","BCNF"], answer: 1, explain: "복합키의 일부(상품코드)에만 종속되는 속성(상품명)이 있으면 **부분 함수 종속** → 제2정규형 위반입니다. 상품 테이블로 분리해 해결합니다." },
+    { id: "sqld-m11", subject: 0, q: "[사원](사원번호, 부서코드, 부서명)에서 사원번호 → 부서코드, 부서코드 → 부서명 종속이 있다. 이 테이블이 만족하지 못하는 가장 낮은 단계의 정규형과 그 이유는?", options: ["제1정규형 - 반복 그룹 존재","제2정규형 - 부분 함수 종속","제3정규형 - 이행 함수 종속","BCNF - 후보키가 아닌 결정자 존재"], answer: 2, explain: "사원번호 → 부서코드 → 부서명처럼 기본키가 아닌 속성을 거쳐 종속되는 **이행 함수 종속**은 제3정규형 위반입니다." },
     { id: 'sqld-m12', subject: 0, q: '반정규화에 대한 설명으로 가장 적절하지 않은 것은?', options: ['조회 성능 향상을 위해 데이터 중복을 허용하는 기법이다.', '통계 테이블이나 이력 테이블을 추가하는 것도 반정규화 기법이다.', '반정규화를 하면 데이터 무결성이 더 강하게 보장된다.', '반정규화 전에 인덱스 조정, 뷰, 클러스터링 등 다른 방법을 먼저 검토한다.'], answer: 2, explain: '반정규화는 중복을 허용하므로 데이터 무결성(정합성)이 깨질 위험이 커집니다. 그래서 다른 성능 개선 방법을 먼저 검토한 뒤 적용합니다.' },
     { id: 'sqld-m13', subject: 0, q: '슈퍼타입/서브타입 모델을 하나의 테이블로 통합하는 변환 방식으로, 조인이 없어 조회가 빠르지만 NULL 컬럼이 많아질 수 있는 것은?', options: ['One to One Type', 'Plus Type', 'Single Type (All in One)', 'Super Type Only'], answer: 2, explain: 'Single(All in One) 방식은 슈퍼타입과 모든 서브타입을 하나의 테이블로 만듭니다. 조인이 필요 없지만 서브타입별 속성이 다른 행에서는 NULL이 됩니다. One to One은 각각 테이블, Plus는 슈퍼+서브 조합입니다.' },
     { id: 'sqld-m14', subject: 0, q: '트랜잭션의 특성(ACID) 중 "트랜잭션 실행 중 다른 트랜잭션이 중간 결과에 접근할 수 없다"는 특성은?', options: ['원자성(Atomicity)', '일관성(Consistency)', '고립성(Isolation)', '지속성(Durability)'], answer: 2, explain: '고립성은 동시에 실행되는 트랜잭션이 서로의 중간 결과를 볼 수 없다는 특성입니다. 원자성은 All or Nothing, 일관성은 실행 전후 DB 상태가 일관됨, 지속성은 커밋된 결과가 영구 반영됨입니다.' },
@@ -180,7 +180,7 @@ export const SQLD = {
     { id: 'sqld-s13', subject: 1, q: '부서별 평균 급여가 2,000 이상인 부서만 조회하는 SQL로 옳은 것은?', options: ['SELECT deptno, AVG(sal) FROM emp WHERE AVG(sal) >= 2000 GROUP BY deptno', 'SELECT deptno, AVG(sal) FROM emp GROUP BY deptno HAVING AVG(sal) >= 2000', 'SELECT deptno, AVG(sal) FROM emp GROUP BY deptno WHERE AVG(sal) >= 2000', 'SELECT deptno, AVG(sal) FROM emp HAVING AVG(sal) >= 2000'], answer: 1, explain: '집계 결과에 대한 조건은 GROUP BY 뒤의 HAVING에 둡니다. GROUP BY 없이 deptno와 AVG를 함께 SELECT하면 오류가 나고, WHERE에는 집계 함수를 쓸 수 없습니다.' },
     { id: 'sqld-s14', subject: 1, q: 'Oracle의 외부 조인 표기 "WHERE A.ID = B.ID(+)"와 같은 결과를 내는 ANSI 조인은?', options: ['A INNER JOIN B ON A.ID = B.ID', 'A LEFT OUTER JOIN B ON A.ID = B.ID', 'A RIGHT OUTER JOIN B ON A.ID = B.ID', 'A FULL OUTER JOIN B ON A.ID = B.ID'], answer: 1, explain: '(+)가 붙은 쪽(B)이 "없어도 되는 쪽"이므로 A 기준의 LEFT OUTER JOIN입니다.' },
     { id: 'sqld-s15', subject: 1, q: 'NATURAL JOIN에 대한 설명으로 옳지 않은 것은?', options: ['두 테이블에서 이름이 같은 모든 컬럼으로 EQUI JOIN한다.', '조인에 사용된 컬럼은 결과에 한 번만 나타난다.', '조인 컬럼 앞에 테이블 별칭(alias)을 붙여 사용할 수 있다.', '이름이 같은 컬럼의 데이터 타입이 같아야 한다.'], answer: 2, explain: 'NATURAL JOIN과 USING 절에 사용된 조인 컬럼에는 테이블 별칭이나 테이블명을 접두사로 붙일 수 없습니다.' },
-    { id: 'sqld-s16', subject: 1, q: 'EMP 테이블이 14건, DEPT 테이블이 4건일 때 다음 SQL의 결과 건수는?', code: 'SELECT * FROM EMP CROSS JOIN DEPT;', options: ['14건', '18건', '56건', '4건'], answer: 2, explain: 'CROSS JOIN은 모든 조합을 만드는 카티션 곱이므로 14 × 4 = 56건입니다.' },
+    { id: 'sqld-s16', subject: 1, q: 'EMP 테이블이 14건, DEPT 테이블이 4건일 때 다음 SQL의 결과 건수는?', code: 'SELECT * FROM EMP CROSS JOIN DEPT;', options: ['14건', '18건', '56건', '4건'], answer: 2, explain: 'CROSS JOIN은 모든 조합을 만드는 카테시안 곱(Cartesian Product)이므로 14 × 4 = 56건입니다.' },
     { id: 'sqld-s17', subject: 1, q: '다음 중 다중행 서브쿼리 연산자가 아닌 것은?', options: ['IN', 'ALL', 'EXISTS', '='], answer: 3, explain: '= 은 단일행 비교 연산자입니다. 서브쿼리가 여러 행을 반환할 때 = 를 쓰면 오류가 납니다. 다중행 연산자는 IN, ANY, SOME, ALL, EXISTS입니다.' },
     { id: 'sqld-s18', subject: 1, q: '서브쿼리 (SELECT sal FROM emp WHERE deptno = 30)의 결과가 (950, 1250, 1500, 2850)일 때, "WHERE sal > ALL (서브쿼리)"를 만족하는 조건과 같은 것은?', options: ['sal > 950', 'sal > 2850', 'sal > 1500', 'sal IN (950, 1250, 1500, 2850)'], answer: 1, explain: '> ALL은 모든 값보다 커야 하므로 최댓값(2850)보다 큰 것과 같습니다. > ANY는 최솟값(950)보다 큰 것과 같습니다.' },
     { id: 'sqld-s19', subject: 1, q: 'SELECT 절에 사용되어 한 행, 한 컬럼만 반환해야 하는 서브쿼리는?', options: ['인라인 뷰', '스칼라 서브쿼리', '상관 서브쿼리', '다중 컬럼 서브쿼리'], answer: 1, explain: '스칼라 서브쿼리는 SELECT 절 등에서 단일 값처럼 쓰이며 1행 1열을 반환해야 합니다. FROM 절의 서브쿼리는 인라인 뷰입니다.' },
@@ -188,24 +188,24 @@ export const SQLD = {
     { id: 'sqld-s21', subject: 1, q: 'T1(1,2,3,3), T2(3,4)일 때 SELECT C FROM T1 UNION SELECT C FROM T2 의 결과 건수는?', options: ['6건', '5건', '4건', '3건'], answer: 2, explain: 'UNION은 중복을 제거하므로 1, 2, 3, 4 → 4건입니다. UNION ALL이라면 6건입니다.' },
     { id: 'sqld-s22', subject: 1, q: 'GROUP BY ROLLUP(DEPTNO, JOB)이 생성하는 그룹 집합으로 옳은 것은?', options: ['(DEPTNO, JOB), (DEPTNO), (JOB), ()', '(DEPTNO, JOB), (DEPTNO), ()', '(DEPTNO), (JOB)', '(DEPTNO, JOB), (JOB), ()'], answer: 1, explain: 'ROLLUP(A, B)는 (A,B) 소계, (A) 소계, 전체 합계를 만듭니다. 인자 순서에 따라 결과가 달라집니다. 모든 조합은 CUBE입니다.' },
     { id: 'sqld-s23', subject: 1, q: 'GROUP BY CUBE(A, B)와 같은 결과를 만드는 것은?', options: ['GROUPING SETS((A, B), (A), (B), ())', 'GROUPING SETS(A, B)', 'ROLLUP(A, B)', 'ROLLUP(B, A)'], answer: 0, explain: 'CUBE(A, B)는 가능한 모든 조합 (A,B), (A), (B), 전체를 만듭니다. GROUPING SETS(A, B)는 A별, B별 집계만 만들고 전체 합계는 없습니다.' },
-    { id: 'sqld-s24', subject: 1, q: 'ROLLUP 결과에서 해당 컬럼이 소계(집계)를 위해 NULL로 표시된 행이면 1을 반환하는 함수는?', options: ['GROUPING', 'NVL', 'GROUPING_ID', 'DECODE'], answer: 0, explain: 'GROUPING(컬럼)은 해당 행이 그 컬럼에 대한 소계 행이면 1, 아니면 0을 반환합니다. CASE/DECODE와 함께 "부서 소계", "전체 합계" 라벨을 붙일 때 씁니다.' },
+    { id: "sqld-s24", subject: 1, q: "ROLLUP 결과에서 해당 컬럼이 소계(집계)를 위해 NULL로 표시된 행이면 1을 반환하는 함수는?", options: ["GROUPING","NVL","COALESCE","DECODE"], answer: 0, explain: "GROUPING(컬럼)은 해당 행이 그 컬럼에 대한 소계 행이면 1, 아니면 0을 반환합니다. CASE/DECODE와 함께 \"부서 소계\", \"전체 합계\" 라벨을 붙일 때 씁니다." },
     { id: 'sqld-s25', subject: 1, q: '급여가 (5000, 3000, 3000, 2000)일 때 RANK, DENSE_RANK, ROW_NUMBER로 매긴 2000의 순위가 차례로 옳은 것은? (급여 내림차순)', options: ['4, 3, 4', '3, 3, 4', '4, 4, 4', '3, 2, 4'], answer: 0, explain: 'RANK는 동점 다음 순위를 건너뛰어 1,2,2,4 / DENSE_RANK는 건너뛰지 않아 1,2,2,3 / ROW_NUMBER는 고유 번호 1,2,3,4입니다.' },
     { id: 'sqld-s26', subject: 1, q: '윈도우 함수에서 ORDER BY만 지정하고 윈도우 프레임을 생략했을 때 기본 프레임은?', options: ['ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING', 'RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW', 'ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING', 'RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING'], answer: 1, explain: 'ORDER BY가 있으면 기본 프레임은 RANGE UNBOUNDED PRECEDING ~ CURRENT ROW입니다(누적). RANGE라서 정렬 값이 같은 행은 함께 합산됩니다. ORDER BY가 없으면 파티션 전체가 대상입니다.' },
     { id: 'sqld-s27', subject: 1, q: '각 사원의 바로 이전 입사자의 급여를 함께 조회할 때 사용하는 함수는?', code: 'SELECT ename, hiredate, sal,\n       ______(sal) OVER (ORDER BY hiredate) AS prev_sal\nFROM emp;', options: ['LEAD', 'LAG', 'FIRST_VALUE', 'NTILE'], answer: 1, explain: 'LAG는 이전 행, LEAD는 다음 행의 값을 가져옵니다. LAG(sal, 2, 0)처럼 몇 행 전인지와 기본값도 지정할 수 있습니다.' },
     { id: 'sqld-s28', subject: 1, q: '파티션 전체 합계 대비 현재 행 값의 비율을 반환하는 윈도우 함수는?', options: ['PERCENT_RANK', 'CUME_DIST', 'RATIO_TO_REPORT', 'NTILE'], answer: 2, explain: 'RATIO_TO_REPORT(sal) OVER ()는 sal / SUM(sal)입니다. PERCENT_RANK는 (순위-1)/(행수-1), CUME_DIST는 현재 값 이하인 행의 누적 비율입니다.' },
-    { id: 'sqld-s29', subject: 1, q: 'Oracle에서 다음 SQL 중 결과가 1건 이상 나올 수 있는 것은? (EMP는 14건)', options: ['SELECT * FROM EMP WHERE ROWNUM = 2', 'SELECT * FROM EMP WHERE ROWNUM > 1', 'SELECT * FROM EMP WHERE ROWNUM <= 3', 'SELECT * FROM EMP WHERE ROWNUM BETWEEN 2 AND 5'], answer: 2, explain: 'ROWNUM은 조건을 통과한 행에 1부터 차례로 부여됩니다. 첫 행이 ROWNUM=1로 "= 2", "> 1" 조건에서 탈락하면 다음 행도 다시 1이 되어 계속 탈락하므로 결과가 0건입니다.' },
+    { id: "sqld-s29", subject: 1, q: "Oracle에서 다음 SQL 중 결과가 1건 이상 나올 수 있는 것은? (EMP는 14건)", options: ["SELECT * FROM EMP WHERE ROWNUM = 2","SELECT * FROM EMP WHERE ROWNUM > 1","SELECT * FROM EMP WHERE ROWNUM <= 3","SELECT * FROM EMP WHERE ROWNUM BETWEEN 2 AND 5"], answer: 2, explain: "ROWNUM은 조건을 통과한 행에 1부터 차례로 부여됩니다. 첫 행이 ROWNUM=1로 \"= 2\", \"> 1\" 조건에서 탈락하면 다음 행도 다시 1이 되어 계속 탈락하므로 결과가 0건입니다. ROWNUM BETWEEN 2 AND 5도 첫 행(ROWNUM=1)이 탈락하므로 0건입니다." },
     { id: 'sqld-s30', subject: 1, q: 'Oracle에서 급여 상위 3명을 올바르게 조회하는 SQL은?', options: ['SELECT * FROM emp WHERE ROWNUM <= 3 ORDER BY sal DESC', 'SELECT * FROM (SELECT * FROM emp ORDER BY sal DESC) WHERE ROWNUM <= 3', 'SELECT TOP 3 * FROM emp ORDER BY sal DESC', 'SELECT * FROM emp ORDER BY sal DESC WHERE ROWNUM <= 3'], answer: 1, explain: 'ROWNUM은 ORDER BY보다 먼저(WHERE 단계에서) 부여되므로, WHERE ROWNUM <= 3 ORDER BY ...는 임의의 3건을 뽑은 뒤 정렬합니다. 인라인 뷰에서 먼저 정렬해야 합니다. TOP 3은 SQL Server 문법입니다.' },
-    { id: 'sqld-s31', subject: 1, q: '계층형 질의에서 관리자(부모)부터 부하(자식) 방향으로 전개하는 올바른 CONNECT BY 절은? (EMP의 MGR은 관리자 사번)', options: ['CONNECT BY PRIOR MGR = EMPNO', 'CONNECT BY PRIOR EMPNO = MGR', 'CONNECT BY EMPNO = MGR', 'CONNECT BY LEVEL = MGR'], answer: 1, explain: 'PRIOR가 붙은 컬럼은 이전(부모) 행의 값입니다. 부모 행의 EMPNO가 현재 행의 MGR과 같아야 하므로 CONNECT BY PRIOR EMPNO = MGR이 순방향(위→아래)입니다. 암기법: "PRIOR 자식키(PK) = 부모키(FK)"이면 순방향, 반대면 역방향입니다.' },
+    { id: 'sqld-s31', subject: 1, q: '계층형 질의에서 관리자(부모)부터 부하(자식) 방향으로 전개하는 올바른 CONNECT BY 절은? (EMP의 MGR은 관리자 사번)', options: ['CONNECT BY PRIOR MGR = EMPNO', 'CONNECT BY PRIOR EMPNO = MGR', 'CONNECT BY EMPNO = MGR', 'CONNECT BY LEVEL = MGR'], answer: 1, explain: 'PRIOR가 붙은 컬럼은 이전(부모) 행의 값입니다. 부모 행의 EMPNO가 현재 행의 MGR과 같아야 하므로 CONNECT BY PRIOR EMPNO = MGR이 순방향(위→아래)입니다. 암기법: "CONNECT BY PRIOR PK(EMPNO) = FK(MGR)"이면 부모→자식 순방향, "PRIOR FK = PK"이면 자식→부모 역방향입니다.' },
     { id: 'sqld-s32', subject: 1, q: '계층형 질의에 대한 설명으로 옳지 않은 것은?', options: ['START WITH는 루트 노드를 지정한다.', 'LEVEL은 루트 노드가 1이다.', 'CONNECT_BY_ISLEAF는 자식이 없는 리프 노드이면 1을 반환한다.', 'ORDER SIBLINGS BY는 계층 구조를 무시하고 전체 결과를 정렬한다.'], answer: 3, explain: 'ORDER SIBLINGS BY는 계층 구조를 유지하면서 같은 부모를 가진 형제 노드끼리만 정렬합니다. 일반 ORDER BY는 계층 구조를 무시하고 정렬합니다.' },
     { id: 'sqld-s33', subject: 1, q: 'DELETE, TRUNCATE, DROP에 대한 설명으로 옳은 것은?', options: ['TRUNCATE는 WHERE 절로 일부 행만 삭제할 수 있다.', 'DELETE는 로그를 남기므로 ROLLBACK이 가능하다.', 'DROP은 데이터만 삭제하고 테이블 구조는 남긴다.', 'TRUNCATE는 DML이므로 ROLLBACK할 수 있다.'], answer: 1, explain: 'DELETE는 DML로 행 단위 삭제와 ROLLBACK이 가능합니다. TRUNCATE는 DDL로 전체 데이터를 삭제하고 저장 공간을 해제하며 ROLLBACK할 수 없습니다. DROP은 테이블 구조까지 삭제합니다.' },
     { id: 'sqld-s34', subject: 1, q: 'Oracle에서 다음을 순서대로 실행한 뒤 T의 건수는? (T는 처음에 0건)', code: "INSERT INTO T VALUES (1);\nSAVEPOINT A;\nINSERT INTO T VALUES (2);\nSAVEPOINT B;\nINSERT INTO T VALUES (3);\nROLLBACK TO A;\nCOMMIT;", options: ['0건', '1건', '2건', '3건'], answer: 1, explain: 'ROLLBACK TO A는 SAVEPOINT A 이후의 작업(2, 3 입력)을 취소합니다. 1만 남은 상태로 COMMIT되므로 1건입니다.' },
     { id: 'sqld-s35', subject: 1, q: 'Oracle에서 다음을 실행한 뒤 T의 건수는? (T는 처음에 0건)', code: "INSERT INTO T VALUES (1);\nCREATE TABLE T2 (C NUMBER);\nINSERT INTO T VALUES (2);\nROLLBACK;", options: ['0건', '1건', '2건', '오류'], answer: 1, explain: 'Oracle은 DDL(CREATE TABLE) 실행 시 자동으로 COMMIT합니다. 따라서 1은 이미 커밋되었고, 이후 입력한 2만 ROLLBACK되어 1건이 남습니다.' },
     { id: 'sqld-s36', subject: 1, q: '제약조건에 대한 설명으로 옳지 않은 것은?', options: ['PRIMARY KEY는 UNIQUE와 NOT NULL 특성을 모두 가진다.', 'UNIQUE 제약조건이 걸린 컬럼에는 NULL을 입력할 수 있다.', '하나의 테이블에 PRIMARY KEY는 여러 개 정의할 수 있다.', 'FOREIGN KEY에 ON DELETE CASCADE를 지정하면 부모 삭제 시 자식도 함께 삭제된다.'], answer: 2, explain: '기본키는 테이블당 하나만 정의할 수 있습니다(여러 컬럼으로 구성된 복합키는 가능). UNIQUE는 여러 개 정의할 수 있습니다.' },
     { id: 'sqld-s37', subject: 1, q: '다른 사용자에게 받은 권한을 다시 다른 사용자에게 부여할 수 있게 하는 GRANT 옵션은?', options: ['WITH ADMIN OPTION', 'WITH GRANT OPTION', 'WITH CHECK OPTION', 'CASCADE'], answer: 1, explain: '객체 권한(SELECT, INSERT 등)에는 WITH GRANT OPTION, 시스템 권한·롤에는 WITH ADMIN OPTION을 사용합니다. WITH CHECK OPTION은 뷰 조건을 벗어나는 DML을 막는 옵션입니다.' },
-    { id: 'sqld-s38', subject: 1, q: 'MERGE 문에 대한 설명으로 옳은 것은?', options: ['조건에 맞으면 UPDATE, 맞지 않으면 INSERT를 하나의 문장으로 수행할 수 있다.', 'DDL 명령어이다.', 'DELETE는 사용할 수 없다.', 'MERGE 실행 후에는 ROLLBACK할 수 없다.'], answer: 0, explain: 'MERGE는 DML로 WHEN MATCHED THEN UPDATE, WHEN NOT MATCHED THEN INSERT를 한 번에 처리합니다(Oracle은 MATCHED 절 안에서 DELETE도 지원). Databricks Delta의 MERGE INTO와 같은 개념입니다.' },
+    { id: "sqld-s38", subject: 1, q: "MERGE 문에 대한 설명으로 옳은 것은?", options: ["UPDATE와 INSERT를 조건에 따라 한 문장으로 처리할 수 있다.","DDL 명령어이므로 실행 즉시 자동 커밋된다.","WHEN MATCHED 절에서 DELETE는 사용할 수 없다.","MERGE 실행 후에는 ROLLBACK할 수 없다."], answer: 0, explain: "MERGE는 DML로 WHEN MATCHED THEN UPDATE, WHEN NOT MATCHED THEN INSERT를 한 번에 처리합니다(Oracle은 MATCHED 절 안에서 DELETE도 지원). Databricks Delta의 MERGE INTO와 같은 개념입니다." },
     { id: 'sqld-s39', subject: 1, q: '뷰(View)의 장점으로 거리가 먼 것은?', options: ['복잡한 쿼리를 단순화할 수 있다(편리성).', '사용자에게 필요한 컬럼만 보여줘 보안을 강화할 수 있다(보안성).', '테이블 구조가 바뀌어도 뷰만 수정하면 응용 프로그램은 유지할 수 있다(독립성).', '뷰는 데이터를 별도로 저장하므로 조회가 항상 빠르다.'], answer: 3, explain: '일반 뷰는 데이터를 저장하지 않는 가상 테이블로, 조회할 때마다 정의된 쿼리를 실행합니다. 결과를 저장하는 것은 Materialized View입니다.' },
     { id: 'sqld-s40', subject: 1, q: '다음 SQL의 결과로 옳은 것은? (Oracle)', code: "SELECT LPAD('SQL', 6, '*') AS a,\n       RTRIM('xxSQLxx', 'x') AS b\nFROM DUAL;", options: ["a = '***SQL', b = 'xxSQL'", "a = 'SQL***', b = 'SQLxx'", "a = '***SQL', b = 'SQL'", "a = '******SQL', b = 'xxSQL'"], answer: 0, explain: "LPAD('SQL', 6, '*')는 전체 길이 6이 되도록 왼쪽을 '*'로 채워 '***SQL'. RTRIM은 오른쪽의 'x'만 제거해 'xxSQL'입니다." },
-    { id: 'sqld-s41', subject: 1, q: '다음 중 Oracle에서 빈 문자열(\'\')에 대한 설명으로 옳은 것은?', options: ["''은 길이 0인 일반 문자열로 NULL과 다르다.", "''은 NULL로 취급된다.", "''을 입력하면 오류가 발생한다.", "''은 공백 한 칸(' ')으로 저장된다."], answer: 1, explain: "Oracle은 빈 문자열을 NULL로 취급합니다(WHERE col = '' 은 항상 거짓). SQL Server, PostgreSQL, Databricks에서는 빈 문자열과 NULL이 다릅니다." },
+    { id: "sqld-s41", subject: 1, q: "다음 중 Oracle에서 빈 문자열('')에 대한 설명으로 옳은 것은?", options: ["''은 길이 0인 일반 문자열로 NULL과 다르다.","''은 NULL로 취급된다.","''을 입력하면 오류가 발생한다.","''은 공백 한 칸(' ')으로 저장된다."], answer: 1, explain: "Oracle은 빈 문자열을 NULL로 취급합니다. 그래서 WHERE col = '' 은 UNKNOWN이 되어 어떤 행도 반환하지 않으므로 IS NULL을 써야 합니다. SQL Server, PostgreSQL, Databricks에서는 빈 문자열과 NULL이 다릅니다." },
     { id: 'sqld-s42', subject: 1, q: '다음 SQL의 결과 건수는? (DEPT 4건: 10,20,30,40 / EMP의 DEPTNO는 10,20,30만 존재)', code: 'SELECT d.deptno\nFROM dept d\nWHERE NOT EXISTS (SELECT 1 FROM emp e WHERE e.deptno = d.deptno);', options: ['0건', '1건', '3건', '4건'], answer: 1, explain: '사원이 없는 부서(40)만 반환하므로 1건입니다. EXISTS/NOT EXISTS는 서브쿼리 결과의 존재 여부만 확인하는 상관 서브쿼리입니다.' },
     { id: 'sqld-s43', subject: 1, q: 'SQL Server에서 "급여 상위 3명을 뽑되 3위와 동점인 사원도 모두 포함"하는 구문은?', options: ['SELECT TOP(3) * FROM emp ORDER BY sal DESC', 'SELECT TOP(3) WITH TIES * FROM emp ORDER BY sal DESC', 'SELECT * FROM emp WHERE ROWNUM <= 3', 'SELECT TOP(3) PERCENT * FROM emp'], answer: 1, explain: 'TOP(n) WITH TIES는 마지막 순위와 같은 값을 가진 행을 함께 반환하며, ORDER BY가 반드시 필요합니다.' },
     { id: 'sqld-s44', subject: 1, q: 'SELECT 절에서 정의한 별칭(alias)을 사용할 수 있는 절은?', options: ['WHERE', 'GROUP BY', 'HAVING', 'ORDER BY'], answer: 3, explain: 'ORDER BY는 SELECT 이후에 실행되므로 별칭을 쓸 수 있습니다. 표준 SQL에서 WHERE, GROUP BY, HAVING은 SELECT보다 먼저 실행되어 별칭을 인식하지 못합니다(Databricks/DuckDB는 일부 허용).' },

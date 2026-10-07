@@ -1,6 +1,14 @@
 import { h, md, store, debounce } from '../util.js';
 import { CONCEPTS, SYNTAX, DBSQL_FEATURES, EXAM, QUIZ } from '../data/databricks.js';
 
+// 코드 조각: 여는 괄호·쉼표 뒤, 메서드 체인(.groupBy( 등) 앞에서 줄바꿈되도록 <wbr> 삽입
+// (a.k 같은 짧은 참조는 끊지 않음)
+function snippet(text) {
+  const code = h('code', { class: 'snippet' });
+  text.split(/(?<=[(,])(?!\))|(?<=[\w)\]'"]{2})(?=\.\w+\()/).forEach((part, i) => { if (i) code.append(h('wbr')); code.append(part); });
+  return code;
+}
+
 const TABS = [['concepts', '핵심 개념'], ['syntax', '문법 대응표'], ['dbsql', 'Databricks SQL 문법'], ['exam', '자격증 대비 퀴즈'], ['local', '로컬 Spark 환경']];
 
 export default {
@@ -17,9 +25,11 @@ export default {
     this.show(store.get('dbx:tab', 'concepts'));
   },
 
+  onShow(params) { if (params.tab && TABS.some(([k]) => k === params.tab)) this.show(params.tab); },
+
   show(tab) {
     store.set('dbx:tab', tab);
-    this.tabBar.replaceChildren(...TABS.map(([k, l]) => h('button', { type: 'button', role: 'tab', class: k === tab ? 'on' : '', onclick: () => this.show(k) }, l)));
+    this.tabBar.replaceChildren(...TABS.map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(k === tab), class: k === tab ? 'on' : '', onclick: () => this.show(k) }, l)));
     const v = { concepts: () => this.concepts(), syntax: () => this.syntax(), dbsql: () => this.dbsql(), exam: () => this.exam(), local: () => this.local() }[tab] || (() => this.concepts());
     this.body.replaceChildren(v());
   },
@@ -33,19 +43,21 @@ export default {
     const tbody = h('tbody');
     const render = () => {
       const kw = search.value.trim().toLowerCase();
-      tbody.replaceChildren(...SYNTAX.filter((r) => !kw || Object.values(r).join(' ').toLowerCase().includes(kw)).map((r) => h('tr', null,
-        h('td', null, h('b', null, r.task)),
-        h('td', null, h('code', null, r.dbsql)),
-        h('td', null, r.duck === '동일' ? h('span', { class: 'muted' }, '동일') : h('code', null, r.duck)),
-        h('td', null, h('code', null, r.pandas)),
-        h('td', null, h('code', null, r.pyspark)))));
+      const rows = SYNTAX.filter((r) => !kw || Object.values(r).join(' ').toLowerCase().includes(kw));
+      tbody.replaceChildren(...(rows.length ? rows.map((r) => h('tr', null,
+        h('th', { scope: 'row' }, r.task),
+        h('td', { 'data-label': 'Databricks SQL' }, snippet(r.dbsql)),
+        h('td', { 'data-label': 'DuckDB' }, r.duck === '동일' ? h('span', { class: 'muted' }, '동일') : snippet(r.duck)),
+        h('td', { 'data-label': 'pandas' }, snippet(r.pandas)),
+        h('td', { 'data-label': 'PySpark' }, snippet(r.pyspark)))) : [h('tr', null, h('td', { colspan: 5, class: 'muted' }, '검색 결과가 없습니다.'))]));
     };
     search.addEventListener('input', debounce(render, 120));
     render();
     return h('div', { class: 'card stack' },
       h('div', { class: 'row between' }, h('h3', { style: { margin: 0 } }, 'Databricks SQL ↔ DuckDB(이 사이트) ↔ pandas ↔ PySpark'), search),
       h('p', { class: 'small muted', style: { margin: 0 } }, 'PySpark 예시는 from pyspark.sql import functions as F, from pyspark.sql.window import Window 를 가정합니다.'),
-      h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
+      h('div', { class: 'table-wrap syntax-wrap' }, h('table', { class: 'data syntax-table' },
+        h('colgroup', null, h('col', { class: 'c-task' }), h('col'), h('col', { class: 'c-duck' }), h('col'), h('col', { class: 'c-spark' })),
         h('thead', null, h('tr', null, h('th', null, '작업'), h('th', null, 'Databricks SQL'), h('th', null, 'DuckDB'), h('th', null, 'pandas'), h('th', null, 'PySpark'))),
         tbody)));
   },

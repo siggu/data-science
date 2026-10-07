@@ -1,6 +1,7 @@
 import { h, md, store, resultTable, compareResults } from '../util.js';
 import { PROBLEMS, LEVEL_NAME } from '../data/problems.js';
 import { QUESTIONS } from '../data/interview.js';
+import { TABLES } from '../config.js';
 import { createEditor } from '../editor.js';
 import { renderPyOutput, renderError, loadingLine } from '../components.js';
 import { runSQL, getDuckDB, getPyodide, runPython, gradePython, engineState } from '../engines.js';
@@ -22,7 +23,7 @@ export default {
         h('h1', null, 'SQL · pandas 문제은행'),
         h('p', null, `면접과 실무에서 자주 나오는 패턴 ${PROBLEMS.length}문제입니다. 샘플 데이터로 직접 풀고 "채점"을 누르면 정답 쿼리의 결과와 비교합니다. 컬럼 이름은 채점하지 않고 값과 행 수, 컬럼 수를 비교합니다 (숫자는 소수 넷째 자리까지). 맞힌 뒤에는 다른 언어 풀이(SQL ↔ pandas)도 확인해 보세요.`)),
       h('div', { class: 'split' },
-        h('aside', { class: 'card flat sticky-side' }, this.filterEl, this.listEl),
+        h('aside', { class: 'card flat sticky-side prob-aside' }, this.filterEl, this.listEl),
         h('div', { style: { minWidth: 0 } }, this.detailEl)));
     this.renderFilters();
     this.renderList();
@@ -69,10 +70,36 @@ export default {
     store.set('prob:last', p.id);
     this.renderList();
     this.renderDetail(p);
+    // 좁은 화면(목록이 문제 위에 쌓이는 레이아웃)에서는 선택한 문제로 스크롤
+    if (this.mounted && window.matchMedia('(max-width: 900px)').matches) this.detailEl.scrollIntoView({ block: 'start' });
+    this.mounted = true;
     if (p.lang === 'pandas' && engineState.pyodide === 'idle') {
       // 미리 로딩 시작 (사용자가 문제를 읽는 동안)
       getPyodide().catch(() => {});
     }
+  },
+
+  /** 사용 테이블과 컬럼 목록 (컬럼 클릭 → 에디터에 삽입, 미리보기 → 플레이그라운드) */
+  tablesBox(p, getEditor) {
+    const byName = Object.fromEntries(TABLES.map((t) => [t.name, t]));
+    return h('div', { class: 'tables-box' },
+      h('div', { class: 'tables-box-title' }, '사용 테이블', h('span', { class: 'muted small' }, ' · 컬럼을 누르면 에디터에 입력됩니다')),
+      (p.tables || []).map((name) => {
+        const t = byName[name];
+        return h('div', { class: 'tables-box-row' },
+          h('div', { class: 'row', style: { gap: '6px' } },
+            h('button', { class: 'tbl-name', type: 'button', title: '테이블 이름 입력', onclick: () => getEditor().insert(name) }, name),
+            h('span', { class: 'small muted' }, t ? t.desc : ''),
+            h('button', {
+              class: 'btn ghost sm', type: 'button', title: '플레이그라운드에서 상위 20행 보기',
+              onclick: () => {
+                if (p.lang === 'sql') store.set('pg:inject', `SELECT *\nFROM ${name}\nLIMIT 20`);
+                else store.set('pg:injectPy', `${name}.head(20)`);
+                location.hash = '#/playground';
+              },
+            }, '미리보기 ↗')),
+          h('div', { class: 'col-chips' }, (t ? t.columns : []).map((c) => h('button', { class: 'col-chip', type: 'button', onclick: () => getEditor().insert(c) }, c))));
+      }));
   },
 
   renderDetail(p) {
@@ -174,6 +201,14 @@ export default {
           store.has('prob:solved', p.id) ? h('span', { class: 'badge ok' }, '✓ 맞힘') : null),
         h('h2', { style: { marginTop: '10px' } }, `${p.id}. ${p.title}`),
         h('div', { class: 'md', html: md(p.prompt) }),
+        this.tablesBox(p, () => editor),
+        h('details', { class: 'grading-rules small muted' },
+          h('summary', null, '채점 기준'),
+          h('ul', null,
+            h('li', null, '컬럼 이름은 채점하지 않고, 컬럼 순서와 값만 비교합니다.'),
+            h('li', null, '숫자는 소수 4자리까지 비교합니다. 비율은 지문에 따로 없으면 0~1 소수로 내고, ×100이나 반올림은 하지 않습니다.'),
+            h('li', null, p.orderMatters ? '이 문제는 행 순서도 채점합니다. 지문의 정렬 조건을 지켜주세요.' : '이 문제는 행 순서를 채점하지 않습니다.'),
+            h('li', null, "날짜는 '2025-01-01'과 '2025-01-01 00:00:00'을 같은 값으로 봅니다."))),
         related.length ? h('p', { class: 'small muted', style: { marginTop: '8px', marginBottom: 0 } },
           '관련 면접 질문: ', related.map((q, i) => [i ? ', ' : '', h('a', { href: `#/interview?q=${q.id}` }, q.q.length > 40 ? q.q.slice(0, 40) + '…' : q.q)])) : null,
         hintEl),
