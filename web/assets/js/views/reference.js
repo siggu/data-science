@@ -132,10 +132,12 @@ export default {
         btn.disabled = false;
       }
     };
-    const btn = h('button', { class: 'btn sm', type: 'button', onclick: run }, '▶ 결과 보기');
+    const btn = ex.noBrowser ? null : h('button', { class: 'btn sm', type: 'button', onclick: run }, '▶ 결과 보기');
     return h('div', { class: 'ref-example' },
       h('div', { class: 'row between' }, h('div', { class: 'ref-label' }, `예제 — ${ex.title}`), btn),
-      h('pre', null, h('code', { 'data-lang': lang === 'sql' ? 'sql' : 'python' }, code)),
+      // noBrowser 예제는 data-lang 을 바꿔 플레이그라운드 실행 버튼도 붙지 않게 함
+      h('pre', null, h('code', { 'data-lang': ex.noBrowser ? 'text' : lang === 'sql' ? 'sql' : 'python' }, code)),
+      ex.noBrowser ? h('p', { class: 'small muted', style: { margin: '0 0 6px' } }, '이 사이트의 브라우저용 DuckDB에서는 이 기능을 쓸 수 없어 실행 버튼이 없습니다. 로컬 DuckDB나 local-spark 환경에서 실행해 보세요.') : null,
       out);
   },
 
@@ -157,6 +159,7 @@ export default {
     const total = this.docEl.querySelectorAll('.ref-item').length;
     this.countEl.textContent = kw ? `${n} / ${total}개 항목` : `${total}개 항목`;
     this.docEl.querySelector('.ref-empty').hidden = n > 0;
+    this.onScroll?.();
   },
 
   jump(id, updateHash) {
@@ -169,27 +172,31 @@ export default {
     if (window.matchMedia('(max-width: 900px)').matches) this.toc.open = false;
   },
 
-  // 스크롤 위치에 맞춰 목차에서 현재 항목 강조
+  // 스크롤 위치에 맞춰 목차에서 현재 항목 강조: 헤더 아래 기준선을 지난 마지막 항목
   spy() {
-    this.observer?.disconnect();
+    if (this.onScroll) window.removeEventListener('scroll', this.onScroll);
     const links = new Map([...this.tocEl.querySelectorAll('a')].map((a) => [a.dataset.id, a]));
-    const visible = new Set();
-    this.observer = new IntersectionObserver((entries) => {
-      for (const e of entries) e.isIntersecting ? visible.add(e.target) : visible.delete(e.target);
-      const top = [...visible].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0];
-      if (!top) return;
-      for (const a of links.values()) a.classList.remove('on');
-      const a = links.get(top.dataset.id);
-      if (a) {
-        a.classList.add('on');
-        const box = this.tocEl.closest('.sticky-side');
-        if (box && box.scrollHeight > box.clientHeight) {
-          const r = a.getBoundingClientRect(), b = box.getBoundingClientRect();
-          if (r.top < b.top + 40 || r.bottom > b.bottom - 40) box.scrollTop += r.top - b.top - b.height / 3;
-        }
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (!this.docEl.closest('.view.active')) return;
+      const line = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 92) + 40;
+      let cur = null;
+      for (const art of this.docEl.querySelectorAll('.ref-item:not([hidden])')) {
+        if (art.getBoundingClientRect().top <= line) cur = art; else break;
       }
-    }, { rootMargin: '-90px 0px -55% 0px' });
-    this.docEl.querySelectorAll('.ref-item').forEach((a) => this.observer.observe(a));
+      cur = cur || this.docEl.querySelector('.ref-item:not([hidden])');
+      for (const a of links.values()) a.classList.toggle('on', !!cur && a.dataset.id === cur.dataset.id);
+      const a = cur && links.get(cur.dataset.id);
+      const box = this.tocEl.closest('.sticky-side');
+      if (a && box && box.scrollHeight > box.clientHeight && getComputedStyle(box).overflowY === 'auto') {
+        const r = a.getBoundingClientRect(), b = box.getBoundingClientRect();
+        if (r.top < b.top + 40 || r.bottom > b.bottom - 40) box.scrollTop += r.top - b.top - b.height / 3;
+      }
+    };
+    this.onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+    this.onScroll();
   },
 };
 

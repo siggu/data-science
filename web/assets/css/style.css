@@ -523,7 +523,7 @@ label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; 
 .ref-tier-title { font-size: 1.35rem; padding-bottom: 8px; border-bottom: 2px solid var(--border); margin: 18px 0 4px; }
 .ref-appendix .ref-tier-title { color: var(--text-2); }
 .ref-group-title { font-size: .95rem; color: var(--accent); margin: 22px 0 10px; }
-.ref-item { margin-bottom: 14px; scroll-margin-top: calc(var(--header-h, 92px) + 12px); }
+.ref-item { margin-bottom: 14px; }
 .ref-item.flash { animation: ref-flash 1.4s ease-out; }
 @keyframes ref-flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: var(--shadow); } }
 .ref-item-head h4 { font-size: 1.1rem; margin: 0; }
@@ -547,3 +547,24 @@ label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; 
   .ref-toc[open] { max-height: 60vh; overflow: auto; }
 }
 @media (min-width: 901px) { .ref-toc > summary { display: none; } }
+
+/* ===== 코드 블록 문법 강조 (highlight.js) — 에디터와 같은 팔레트 ===== */
+.tok-kw { color: #a43b9b; font-weight: 600; }
+.tok-fn { color: #2a64d6; }
+.tok-str { color: #1e7a3b; }
+.tok-num, .tok-const { color: #b45309; }
+.tok-com { color: var(--text-3); font-style: italic; }
+.tok-op { color: var(--text-2); }
+.tok-id, .tok-attr { color: #0e7490; }
+:root[data-theme="dark"] .tok-kw { color: #e08ad6; }
+:root[data-theme="dark"] .tok-fn { color: #7fa8f5; }
+:root[data-theme="dark"] .tok-str { color: #7fd09a; }
+:root[data-theme="dark"] .tok-num, :root[data-theme="dark"] .tok-const { color: #f0b46a; }
+:root[data-theme="dark"] .tok-id, :root[data-theme="dark"] .tok-attr { color: #5fc8dc; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tok-kw { color: #e08ad6; }
+  :root:not([data-theme="light"]) .tok-fn { color: #7fa8f5; }
+  :root:not([data-theme="light"]) .tok-str { color: #7fd09a; }
+  :root:not([data-theme="light"]) .tok-num, :root:not([data-theme="light"]) .tok-const { color: #f0b46a; }
+  :root:not([data-theme="light"]) .tok-id, :root:not([data-theme="light"]) .tok-attr { color: #5fc8dc; }
+}

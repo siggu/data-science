@@ -7,6 +7,7 @@
 // - examples: [{ title, code }] — 샘플 테이블로 실제 실행되는 예제 (tests/validate_content.py 가 모두 실행해 검증)
 //     SQL 은 DuckDB(+ compat.js 호환 매크로), pandas 는 runtime.py 네임스페이스(users, orders … 와 pd, np)에서 실행
 //     pandas 예제는 마지막 줄의 값이 출력되므로 결과를 보여줄 식으로 끝냅니다
+//     noBrowser: true 면 화면에서 실행 버튼을 숨깁니다 (브라우저용 DuckDB에서 지원하지 않는 기능, 예: JSON)
 // - tips: 주의할 점·실무 팁 (마크다운 목록, 선택)
 // - dbx: Databricks(Spark SQL / PySpark)와 다른 점 (선택)
 // - related: 연습할 문제은행 id 목록 (선택)

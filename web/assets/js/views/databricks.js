@@ -1,11 +1,15 @@
 import { h, md, store, debounce } from '../util.js';
+import { highlight } from '../highlight.js';
 import { CONCEPTS, SYNTAX, DBSQL_FEATURES, EXAM, QUIZ } from '../data/databricks.js';
 
 // 코드 조각: 여는 괄호·쉼표 뒤, 메서드 체인(.groupBy( 등) 앞에서 줄바꿈되도록 <wbr> 삽입
 // (a.k 같은 짧은 참조는 끊지 않음)
-function snippet(text) {
+function snippet(text, lang) {
   const code = h('code', { class: 'snippet' });
-  text.split(/(?<=[(,])(?!\))|(?<=[\w)\]'"]{2})(?=\.\w+\()/).forEach((part, i) => { if (i) code.append(h('wbr')); code.append(part); });
+  text.split(/(?<=[(,])(?!\))|(?<=[\w)\]'"]{2})(?=\.\w+\()/).forEach((part, i) => {
+    if (i) code.append(h('wbr'));
+    code.append(h('span', { html: highlight(part, lang) }));
+  });
   return code;
 }
 
@@ -46,10 +50,10 @@ export default {
       const rows = SYNTAX.filter((r) => !kw || Object.values(r).join(' ').toLowerCase().includes(kw));
       tbody.replaceChildren(...(rows.length ? rows.map((r) => h('tr', null,
         h('th', { scope: 'row' }, r.task),
-        h('td', { 'data-label': 'Databricks SQL' }, snippet(r.dbsql)),
-        h('td', { 'data-label': 'DuckDB' }, r.duck === '동일' ? h('span', { class: 'muted' }, '동일') : snippet(r.duck)),
-        h('td', { 'data-label': 'pandas' }, snippet(r.pandas)),
-        h('td', { 'data-label': 'PySpark' }, snippet(r.pyspark)))) : [h('tr', null, h('td', { colspan: 5, class: 'muted' }, '검색 결과가 없습니다.'))]));
+        h('td', { 'data-label': 'Databricks SQL' }, snippet(r.dbsql, 'sql')),
+        h('td', { 'data-label': 'DuckDB' }, r.duck === '동일' ? h('span', { class: 'muted' }, '동일') : snippet(r.duck, 'sql')),
+        h('td', { 'data-label': 'pandas' }, snippet(r.pandas, 'python')),
+        h('td', { 'data-label': 'PySpark' }, snippet(r.pyspark, 'python')))) : [h('tr', null, h('td', { colspan: 5, class: 'muted' }, '검색 결과가 없습니다.'))]));
     };
     search.addEventListener('input', debounce(render, 120));
     render();
