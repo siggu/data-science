@@ -2,6 +2,7 @@ import { h, md, store } from '../util.js';
 import { QUESTIONS } from '../data/interview.js';
 import { PROBLEMS } from '../data/problems.js';
 import { CASES } from '../data/cases.js';
+import { CERTS } from '../data/certs.js';
 
 const SKILLS = [
   { name: 'SQL', level: '필수', desc: '2026년 데이터 직무 공고의 **79%**가 SQL을 요구했습니다 (전년 61%). 신입 면접에서도 가장 먼저 확인합니다. **윈도우 함수, CTE, 코호트·퍼널 쿼리**에서 실력 차이가 드러납니다.' },
@@ -87,6 +88,7 @@ export default {
         navCard('#/mock', '모의 면접', '랜덤 질문 · 타이머 · 핵심 포인트로 자기 채점 · 기록'),
         navCard('#/abtest', 'A/B 테스트 도구', '표본 크기 · 결과 분석 · SRM 검사 · 피킹 시뮬레이터'),
         navCard('#/cases', '케이스 트레이닝', `${CASES.length}개 프로덕트 케이스 · 단계별 모범 답안 · 데이터로 검증`),
+        navCard('#/certs', '자격증 (SQLD · ADsP)', `${CERTS.reduce((n, c) => n + c.questions.length, 0)}문제 · 핵심 요약 · 실전 모의고사(과락 판정) · 오답노트 · D-day`),
         navCard('#/databricks', 'Databricks 팩', '문법 대응표 · Delta/Unity Catalog · 자격증 연습 퀴즈')),
     );
   },

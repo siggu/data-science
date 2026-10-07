@@ -114,8 +114,8 @@ export default {
         section('면접관 의도', h('p', { class: 'muted', style: { marginBottom: 0 } }, q.intent)),
         section('모범 답변', h('div', { class: 'md', html: md(q.answer) })),
         q.keyPoints?.length ? section('핵심 포인트 (이것만은 꼭)', h('ul', { class: 'keypoints' }, q.keyPoints.map((k) => h('li', null, k)))) : null,
-        q.pitfalls?.length ? section('흔한 실수', h('ul', null, q.pitfalls.map((k) => h('li', null, k)))) : null,
-        q.followups?.length ? section('예상 꼬리 질문', h('ul', null, q.followups.map((k) => h('li', null, k)))) : null,
+        q.pitfalls?.length ? section('흔한 실수 → 이렇게 하세요', h('div', { class: 'mini-qa' }, q.pitfalls.map((x) => miniItem(x.text, x.fix, '✗')))) : null,
+        q.followups?.length ? section('예상 꼬리 질문 (눌러서 짧은 답 보기)', h('div', { class: 'mini-qa' }, q.followups.map((x) => miniItem(x.q, x.a, 'Q')))) : null,
         h('div', { class: 'row', style: { marginTop: '16px' } },
           h('button', {
             class: `btn sm ${known ? '' : 'primary'}`, type: 'button',
@@ -126,6 +126,13 @@ export default {
     return item;
   },
 };
+
+/** depth 1 접이식 항목: 요약 한 줄 → 클릭하면 짧은 답 */
+export function miniItem(title, answer, mark) {
+  return h('details', { class: 'mini-item' },
+    h('summary', null, h('span', { class: 'mini-mark' }, mark), h('span', null, title)),
+    h('div', { class: 'mini-answer md', html: md(answer) }));
+}
 
 function section(title, body) {
   return h('div', { class: 'qa-section' }, h('h4', null, title), body);

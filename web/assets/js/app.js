@@ -1,5 +1,6 @@
 import { h, store } from './util.js';
 import { onEngineState } from './engines.js';
+import { initEnhancements, quizKeys } from './enhance.js';
 import home from './views/home.js';
 import interview from './views/interview.js';
 import playground from './views/playground.js';
@@ -8,8 +9,9 @@ import mock from './views/mock.js';
 import abtest from './views/abtest.js';
 import cases from './views/cases.js';
 import databricks from './views/databricks.js';
+import certs from './views/certs.js';
 
-const VIEWS = [home, interview, playground, problems, mock, abtest, cases, databricks];
+const VIEWS = [home, interview, playground, problems, mock, abtest, cases, certs, databricks];
 const mounted = new Map();
 const nav = document.getElementById('nav');
 const main = document.getElementById('main');
@@ -43,6 +45,9 @@ function route() {
 
 window.addEventListener('hashchange', route);
 route();
+initEnhancements();
+// 자격증 문제 풀이 / Databricks 퀴즈에서 숫자키·화살표 사용
+quizKeys(() => ['certs', 'databricks'].includes(parseHash().id));
 
 // 엔진 상태 표시
 const status = document.getElementById('engine-status');

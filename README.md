@@ -5,12 +5,13 @@
 
 | 탭 | 내용 |
 |---|---|
-| **면접 Q&A** | 2026년 기준 공통 면접 질문 60개 (SQL · pandas · 통계 · A/B 테스트 · 지표/프로덕트 · Spark/Databricks · ML 기초 · 행동). 질문마다 모범 답변, 면접관 의도, 핵심 포인트, 흔한 실수, 꼬리 질문 포함 |
+| **면접 Q&A** | 2026년 기준 공통 면접 질문 60개 (SQL · pandas · 통계 · A/B 테스트 · 지표/프로덕트 · Spark/Databricks · ML 기초 · 행동). 질문마다 모범 답변, 면접관 의도, 핵심 포인트, 흔한 실수(→ 이렇게 하세요), 꼬리 질문(→ 짧은 답) 포함 |
 | **플레이그라운드** | 브라우저 안의 DuckDB(SQL)와 Pyodide(pandas). 샘플 이커머스 DB 8개 테이블, CSV 업로드, SQL 결과를 pandas로 넘기기, Databricks 함수 호환(`datediff`, `date_format`, `nvl`, `collect_list` 등) |
 | **문제은행** | SQL 20문제 + pandas 12문제 **자동 채점**. 문제마다 SQL 풀이와 pandas 풀이를 함께 제공 |
 | **모의 면접** (A) | 무작위 출제, 타이머, 핵심 포인트로 자기 채점, 약한 질문 우선 출제, 카테고리별 기록 |
 | **A/B 테스트** (B) | 표본 크기 계산기, 비율·평균 결과 분석, SRM 검사, 피킹·p-value 분포·중심극한정리 시뮬레이터 |
 | **케이스 트레이닝** (C) | 프로덕트 케이스 7개 (DAU 하락, 지표 설계, 실험 해석, 인과 추론 등) 단계별 모범 답안 + 샘플 데이터로 검증 |
+| **자격증** | **SQLD**(59문제)·**ADsP**(60문제): 2026년 시험 정보와 D-day, 과목별 핵심 요약, 즉시 채점 문제 풀이, 실제 시험 비중의 **실전 모의고사**(타이머·과락 판정), 오답노트, 다른 자격증 로드맵 |
 | **Databricks** (G) | 레이크하우스, Delta, Unity Catalog 개념, Databricks SQL ↔ DuckDB ↔ pandas ↔ PySpark 대응표, Data Analyst Associate 연습 퀴즈 22문항 |
 
 ## 빠른 시작
@@ -49,6 +50,20 @@ docker compose up --build
 
 `spark`, `display()`, `%%sql` 셀, `dbutils.widgets`가 준비된 상태로 시작하고, 웹과 같은 샘플 데이터가 `practice` 스키마의 Delta 테이블로 등록됩니다. 자세한 내용은 [local-spark/README.md](local-spark/README.md)를 참고하세요.
 
+### 편의 기능 & 단축키 (사이트에서 `?` 키로 도움말)
+
+| 기능 | 사용법 |
+|---|---|
+| 자동 완성 | 입력하면 테이블·컬럼·별칭·함수·pandas 메서드·내 변수 후보가 **점수 순**으로 뜸 (문맥 인식: `FROM` 뒤 테이블, `o.` 뒤 해당 테이블 컬럼, `df['` 안 컬럼, `.dt.`/`.str.` 메서드) · `Ctrl+Space`로 열기 |
+| Tab 자동 완성 | 단어 입력 중 `Tab` → 후보가 하나면 바로 완성, 여러 개면 목록 표시 (목록에서 `Tab`/`Enter` 선택) |
+| 들여쓰기 | `Tab` / `Shift+Tab` (여러 줄 선택 시 블록 단위) |
+| 실행 · 채점 | `Ctrl+Enter` 실행(선택한 부분만 실행 가능) · `Ctrl+Shift+Enter` 채점 |
+| 기타 에디터 | 괄호·따옴표 자동 닫기, `Ctrl+/` 주석 토글, 현재 줄 강조 |
+| 코드 블록 | 마우스를 올리면 [복사] · [▶ 실행해 보기](샘플 테이블을 쓰는 코드는 플레이그라운드에서 바로 실행) |
+| 결과 표 | 컬럼 이름 클릭으로 정렬, [복사]로 엑셀/시트에 붙여넣기 |
+| 문제 풀이 | 자격증·Databricks 퀴즈에서 `1~4` 보기 선택, `Enter`/`→` 다음, `←` 이전 |
+| 사이트 | `/` 검색창 이동, `?` 단축키 도움말, 맨 위로 버튼 |
+
 ## 샘플 데이터
 
 `scripts/generate_sample_data.py`가 시드 고정으로 생성하는 2025년 1년치 가상 이커머스 데이터입니다. 웹과 로컬 Spark가 같은 `web/data/*.csv`를 씁니다.
@@ -78,6 +93,9 @@ web/                      정적 웹 앱 (빌드 과정 없음)
   assets/js/engines.js    DuckDB-WASM / Pyodide 실행 엔진
   assets/js/compat.js     Databricks(Spark SQL) 함수 호환 매크로
   assets/js/stats.js      통계 함수 (정규, t, 카이제곱 분포, 표본 크기, 검정)
+  assets/js/editor.js     CodeMirror 에디터 (단축키, 자동 완성 연결)
+  assets/js/completion.js 문맥 인식 자동 완성 + 점수 순위
+  assets/js/enhance.js    코드 블록 도구, 단축키 도움말, 퀴즈 키보드
   assets/js/views/*.js    탭별 화면
   assets/js/data/*.js     콘텐츠: 면접 질문, 문제, 케이스, Databricks 자료
   assets/py/runtime.py    브라우저 pandas 실행·채점 런타임 (CPython에서도 테스트)
@@ -90,12 +108,14 @@ tests/                    콘텐츠·통계 검증
 ## 콘텐츠 추가와 검증
 
 - 면접 질문: `web/assets/js/data/interview.js`의 `QUESTIONS`에 항목을 추가합니다 (`keyPoints`는 모의 면접 채점 기준).
+- 자격증 문제: `web/assets/js/data/cert-sqld.js`, `cert-adsp.js` (보기 4개, `answer`는 0부터, 보기 순서는 화면에서 무작위로 섞임).
 - 연습 문제: `web/assets/js/data/problems.js`. `solution`과 함께 다른 언어 풀이(`pandasSolution` / `sqlSolution`)를 넣으면, 테스트가 두 풀이의 결과가 같은지 확인합니다.
 
 ```bash
 pip install duckdb "pandas==2.3.3" scipy
 python tests/validate_content.py   # 모든 정답 실행 + SQL/pandas 풀이 결과 일치 + 링크 무결성
 python tests/test_stats.py         # stats.js 계산값을 scipy와 비교
+node tests/test_completion.mjs     # 자동 완성 순위
 ```
 
 PR마다 GitHub Actions(`.github/workflows/ci.yml`)에서 같은 검증이 실행됩니다.
