@@ -1,3 +1,4 @@
+import { REF_LANGS } from '../data/reference.js';
 import { h, md, store } from '../util.js';
 import { QUESTIONS } from '../data/interview.js';
 import { PROBLEMS } from '../data/problems.js';
@@ -85,6 +86,7 @@ export default {
         navCard('#/interview', '면접 Q&A', `${QUESTIONS.length}개 질문 · 모범 답변 · 면접관 의도 · 꼬리 질문`),
         navCard('#/playground', 'SQL · pandas 플레이그라운드', '샘플 DB 8개 테이블 · CSV 업로드 · SQL 결과를 pandas로 전달'),
         navCard('#/problems', '문제은행', `${PROBLEMS.length}문제 자동 채점 · SQL과 pandas 풀이 비교`),
+        navCard('#/reference', 'SQL · pandas 문법 레퍼런스', `${REF_LANGS.reduce((n, l) => n + l.items.length, 0)}개 항목 · 기능별 설명과 바로 실행되는 예제 · 덜 쓰는 문법은 Appendix`),
         navCard('#/mock', '모의 면접', '랜덤 질문 · 타이머 · 핵심 포인트로 자기 채점 · 기록'),
         navCard('#/abtest', 'A/B 테스트 도구', '표본 크기 · 결과 분석 · SRM 검사 · 피킹 시뮬레이터'),
         navCard('#/cases', '케이스 트레이닝', `${CASES.length}개 프로덕트 케이스 · 단계별 모범 답안 · 데이터로 검증`),

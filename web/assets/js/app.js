@@ -10,8 +10,9 @@ import abtest from './views/abtest.js';
 import cases from './views/cases.js';
 import databricks from './views/databricks.js';
 import certs from './views/certs.js';
+import reference from './views/reference.js';
 
-const VIEWS = [home, interview, playground, problems, mock, abtest, cases, certs, databricks];
+const VIEWS = [home, interview, playground, problems, reference, mock, abtest, cases, certs, databricks];
 const mounted = new Map();
 const nav = document.getElementById('nav');
 const main = document.getElementById('main');

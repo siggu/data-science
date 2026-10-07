@@ -28,14 +28,14 @@ import runtime  # noqa: E402
 def load_js_exports() -> dict:
     script = """
 const load = (p) => import(new URL(p, 'file://' + process.argv[1] + '/'));
-const [probs, iv, compat, cases, dbx, certs, config] = await Promise.all([
+const [probs, iv, compat, cases, dbx, certs, config, ref] = await Promise.all([
   load('assets/js/data/problems.js'), load('assets/js/data/interview.js'), load('assets/js/compat.js'),
   load('assets/js/data/cases.js'), load('assets/js/data/databricks.js'), load('assets/js/data/certs.js'),
-  load('assets/js/config.js'),
+  load('assets/js/config.js'), load('assets/js/data/reference.js'),
 ]);
 console.log(JSON.stringify({
   problems: probs.PROBLEMS, questions: iv.QUESTIONS, categories: iv.CATEGORIES, macros: compat.COMPAT_MACROS,
-  cases: cases.CASES, quiz: dbx.QUIZ, certs: certs.CERTS, tables: config.TABLES, checks: cases.CASES.flatMap((c) => c.dataCheck ? [c.dataCheck] : []),
+  cases: cases.CASES, quiz: dbx.QUIZ, certs: certs.CERTS, tables: config.TABLES, ref: ref.REF_LANGS, checks: cases.CASES.flatMap((c) => c.dataCheck ? [c.dataCheck] : []),
 }));
 """
     out = subprocess.run(["node", "--input-type=module", "-e", script, str(WEB)],
@@ -183,6 +183,44 @@ def main() -> int:
             import re
             if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", s_["exam"]):
                 failures.append(f"{cert['id']} {s_['round']}: 시험일 형식 오류")
+
+    # 문법 레퍼런스: 필수 필드, id 중복, 단원(group) 연속 배치, 관련 문제 링크, 모든 예제 실행
+    n_ref = n_ex = 0
+    for lang in data["ref"]:
+        seen, groups = set(), []
+        for it in lang["items"]:
+            n_ref += 1
+            rid = f"ref:{lang['id']}:{it.get('id')}"
+            for key in ("id", "tier", "group", "title", "summary", "body", "syntax", "examples"):
+                if not it.get(key):
+                    failures.append(f"{rid}: {key} 없음")
+            if it.get("tier") not in ("core", "appendix"):
+                failures.append(f"{rid}: tier는 core/appendix")
+            if it.get("id") in seen:
+                failures.append(f"{rid}: id 중복")
+            seen.add(it.get("id"))
+            key = (it.get("tier"), it.get("group"))
+            if groups and groups[-1] != key and key in groups:
+                failures.append(f"{rid}: 같은 단원({it.get('group')}) 항목이 떨어져 있음")
+            if not groups or groups[-1] != key:
+                groups.append(key)
+            for r in it.get("related") or []:
+                if r not in ids:
+                    failures.append(f"{rid}: related 문제 {r} 없음")
+            for ex in it.get("examples") or []:
+                n_ex += 1
+                try:
+                    if lang["id"] == "sql":
+                        con.execute(ex["code"]).fetchall()
+                    else:
+                        res = asyncio.run(runtime.run_cell(ex["code"], runtime.fresh_namespace()))
+                        if res["error"]:
+                            raise RuntimeError(res["error"].strip().splitlines()[-1])
+                except Exception as e:  # noqa: BLE001
+                    failures.append(f"{rid} 예제 '{ex.get('title')}' 실행 오류: {e}")
+        if [t for t, _ in groups] != sorted([t for t, _ in groups], key=lambda t: t != "core"):
+            failures.append(f"ref:{lang['id']}: core 항목이 appendix보다 앞에 와야 함")
+    print(f"문법 레퍼런스 {n_ref}개 항목 · 예제 {n_ex}개 실행")
 
     print(f"\n문제 {len(data['problems'])}개 · 면접 질문 {len(data['questions'])}개 · 케이스 {len(data['cases'])}개 · 퀴즈 {len(data['quiz'])}개 · 자격증 문제 {sum(len(c['questions']) for c in data['certs'])}개")
     if failures:

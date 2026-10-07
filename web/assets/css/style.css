@@ -82,6 +82,7 @@
 
 /* ===== Base ===== */
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--header-h, 92px) + 12px); }
 body {
   margin: 0;
@@ -496,3 +497,53 @@ label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; 
 .grading-rules ul { margin: 4px 0 0; }
 .filter-more > summary { cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--text-2); }
 @media (min-width: 901px) { .filter-more > summary { display: none; } .filter-more > div { margin-top: 0 !important; } }
+
+/* ===== 문법 레퍼런스 ===== */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; padding: 3px; background: var(--surface-2); gap: 2px; }
+.seg button { font: inherit; font-weight: 600; border: 0; background: none; color: var(--text-2); padding: 6px 16px; border-radius: 7px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.seg button.on { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.seg button:focus-visible { outline: 2px solid var(--accent); }
+.seg .count { font-size: .75rem; font-weight: 500; color: var(--text-3); }
+.ref-bar { margin-bottom: 14px; gap: 10px; }
+.ref-bar > .row { flex-wrap: nowrap; flex: 1 1 260px; justify-content: flex-end; min-width: 0; }
+.ref-bar > .row > span { white-space: nowrap; }
+.ref-bar input[type=search] { width: 100%; max-width: 320px; min-width: 0; }
+.ref-layout { grid-template-columns: 250px minmax(0, 1fr); }
+.ref-toc { padding: 12px 10px; }
+.ref-toc > summary { cursor: pointer; font-weight: 600; padding: 2px 6px; }
+.toc-tier + .toc-tier { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.toc-tier-name { font-size: .78rem; font-weight: 700; color: var(--accent); padding: 0 6px 4px; }
+.toc-appendix .toc-tier-name { color: var(--text-2); }
+.toc-group { margin-top: 6px; }
+.toc-group-name { font-size: .72rem; font-weight: 600; color: var(--text-3); padding: 2px 6px; letter-spacing: .02em; }
+.ref-toc-list a { display: block; padding: 3px 6px 3px 12px; font-size: .86rem; color: var(--text-2); border-left: 2px solid transparent; border-radius: 0 6px 6px 0; line-height: 1.4; }
+.ref-toc-list a:hover { color: var(--text); background: var(--surface-2); text-decoration: none; }
+.ref-toc-list a.on { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.ref-tier + .ref-tier { margin-top: 36px; }
+.ref-tier-title { font-size: 1.35rem; padding-bottom: 8px; border-bottom: 2px solid var(--border); margin: 18px 0 4px; }
+.ref-appendix .ref-tier-title { color: var(--text-2); }
+.ref-group-title { font-size: .95rem; color: var(--accent); margin: 22px 0 10px; }
+.ref-item { margin-bottom: 14px; scroll-margin-top: calc(var(--header-h, 92px) + 12px); }
+.ref-item.flash { animation: ref-flash 1.4s ease-out; }
+@keyframes ref-flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: var(--shadow); } }
+.ref-item-head h4 { font-size: 1.1rem; margin: 0; }
+.ref-link { color: var(--text-3); font-weight: 600; padding: 0 4px; opacity: 0; transition: opacity .15s; }
+.ref-item:hover .ref-link, .ref-link:focus-visible { opacity: 1; }
+@media (hover: none) { .ref-link { opacity: .6; } }
+.ref-summary { color: var(--text-2); margin: 4px 0 10px; }
+.ref-label { font-size: .75rem; font-weight: 700; color: var(--text-3); margin: 12px 0 4px; letter-spacing: .02em; }
+.ref-example .row .ref-label { margin: 0; }
+.ref-example { margin-top: 12px; }
+.ref-example > .row { margin-bottom: 4px; }
+.ref-example pre, .ref-syntax { margin-bottom: 6px; }
+.ref-syntax { background: var(--surface-2); }
+.ref-out:not(:empty) { margin: 4px 0 8px; }
+.ref-tips, .ref-dbx { margin-top: 10px; }
+.ref-tips ul, .ref-dbx ul { margin-bottom: 0; }
+.ref-related { margin: 10px 0 0; color: var(--text-2); }
+@media (max-width: 900px) {
+  .ref-layout { grid-template-columns: minmax(0, 1fr); }
+  .ref-layout .sticky-side { position: sticky; top: var(--header-h, 92px); z-index: 4; }
+  .ref-toc[open] { max-height: 60vh; overflow: auto; }
+}
+@media (min-width: 901px) { .ref-toc > summary { display: none; } }

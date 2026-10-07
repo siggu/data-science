@@ -4,6 +4,7 @@ import { QUESTIONS } from '../data/interview.js';
 import { TABLES } from '../config.js';
 import { createEditor } from '../editor.js';
 import { renderPyOutput, renderError, loadingLine } from '../components.js';
+import { refsForProblem } from './reference.js';
 import { runSQL, getDuckDB, getPyodide, runPython, gradePython, engineState } from '../engines.js';
 
 const starter = (p) => (p.lang === 'sql'
@@ -187,6 +188,7 @@ export default {
           h('button', { class: 'btn sm', type: 'button', onclick: () => { editor.setValue(p.solution); save(); } }, '모범 풀이를 에디터에 넣기'))));
     };
 
+    const refs = refsForProblem(p.id);
     const idx = PROBLEMS.indexOf(p);
     const next = PROBLEMS[idx + 1];
     const hintEl = h('div');
@@ -209,6 +211,8 @@ export default {
             h('li', null, '숫자는 소수 4자리까지 비교합니다. 비율은 지문에 따로 없으면 0~1 소수로 내고, ×100이나 반올림은 하지 않습니다.'),
             h('li', null, p.orderMatters ? '이 문제는 행 순서도 채점합니다. 지문의 정렬 조건을 지켜주세요.' : '이 문제는 행 순서를 채점하지 않습니다.'),
             h('li', null, "날짜는 '2025-01-01'과 '2025-01-01 00:00:00'을 같은 값으로 봅니다."))),
+        refs.length ? h('p', { class: 'small muted', style: { marginTop: '8px', marginBottom: 0 } },
+          '관련 문법: ', refs.map((r, i) => [i ? ', ' : '', h('a', { href: `#/reference?lang=${r.lang}&id=${r.id}` }, r.title)])) : null,
         related.length ? h('p', { class: 'small muted', style: { marginTop: '8px', marginBottom: 0 } },
           '관련 면접 질문: ', related.map((q, i) => [i ? ', ' : '', h('a', { href: `#/interview?q=${q.id}` }, q.q.length > 40 ? q.q.slice(0, 40) + '…' : q.q)])) : null,
         hintEl),
