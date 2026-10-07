@@ -1,6 +1,7 @@
 import { h, md, store, resultTable, compareResults } from '../util.js';
 import { PROBLEMS, LEVEL_NAME } from '../data/problems.js';
 import { QUESTIONS } from '../data/interview.js';
+import { TABLES } from '../config.js';
 import { createEditor } from '../editor.js';
 import { renderPyOutput, renderError, loadingLine } from '../components.js';
 import { runSQL, getDuckDB, getPyodide, runPython, gradePython, engineState } from '../engines.js';
@@ -73,6 +74,29 @@ export default {
       // 미리 로딩 시작 (사용자가 문제를 읽는 동안)
       getPyodide().catch(() => {});
     }
+  },
+
+  /** 사용 테이블과 컬럼 목록 (컬럼 클릭 → 에디터에 삽입, 미리보기 → 플레이그라운드) */
+  tablesBox(p, getEditor) {
+    const byName = Object.fromEntries(TABLES.map((t) => [t.name, t]));
+    return h('div', { class: 'tables-box' },
+      h('div', { class: 'tables-box-title' }, '사용 테이블', h('span', { class: 'muted small' }, ' · 컬럼을 누르면 에디터에 입력됩니다')),
+      (p.tables || []).map((name) => {
+        const t = byName[name];
+        return h('div', { class: 'tables-box-row' },
+          h('div', { class: 'row', style: { gap: '6px' } },
+            h('button', { class: 'tbl-name', type: 'button', title: '테이블 이름 입력', onclick: () => getEditor().insert(name) }, name),
+            h('span', { class: 'small muted' }, t ? t.desc : ''),
+            h('button', {
+              class: 'btn ghost sm', type: 'button', title: '플레이그라운드에서 상위 20행 보기',
+              onclick: () => {
+                if (p.lang === 'sql') store.set('pg:inject', `SELECT *\nFROM ${name}\nLIMIT 20`);
+                else store.set('pg:injectPy', `${name}.head(20)`);
+                location.hash = '#/playground';
+              },
+            }, '미리보기 ↗')),
+          h('div', { class: 'col-chips' }, (t ? t.columns : []).map((c) => h('button', { class: 'col-chip', type: 'button', onclick: () => getEditor().insert(c) }, c))));
+      }));
   },
 
   renderDetail(p) {
@@ -174,6 +198,7 @@ export default {
           store.has('prob:solved', p.id) ? h('span', { class: 'badge ok' }, '✓ 맞힘') : null),
         h('h2', { style: { marginTop: '10px' } }, `${p.id}. ${p.title}`),
         h('div', { class: 'md', html: md(p.prompt) }),
+        this.tablesBox(p, () => editor),
         related.length ? h('p', { class: 'small muted', style: { marginTop: '8px', marginBottom: 0 } },
           '관련 면접 질문: ', related.map((q, i) => [i ? ', ' : '', h('a', { href: `#/interview?q=${q.id}` }, q.q.length > 40 ? q.q.slice(0, 40) + '…' : q.q)])) : null,
         hintEl),

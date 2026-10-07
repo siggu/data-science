@@ -403,3 +403,12 @@ li.CodeMirror-hint-active.ac-item { background: var(--accent-soft); color: var(-
 .to-top.show { opacity: 1; pointer-events: auto; }
 .to-top:hover { color: var(--accent); border-color: var(--accent); }
 @media (max-width: 560px) { #help-toggle { display: none; } }
+
+/* ===== 문제: 사용 테이블 ===== */
+.tables-box { margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); padding: 10px 12px; }
+.tables-box-title { font-size: .82rem; font-weight: 700; color: var(--text-2); margin-bottom: 6px; }
+.tables-box-row + .tables-box-row { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.tbl-name { font-family: var(--mono); font-weight: 700; font-size: .88rem; background: var(--good-soft); color: var(--good); border: 0; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.col-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.col-chip { font-family: var(--mono); font-size: .76rem; background: var(--surface); color: var(--text-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; cursor: pointer; }
+.col-chip:hover, .tbl-name:hover { border-color: var(--accent); color: var(--accent); }

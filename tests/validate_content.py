@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -27,13 +28,14 @@ import runtime  # noqa: E402
 def load_js_exports() -> dict:
     script = """
 const load = (p) => import(new URL(p, 'file://' + process.argv[1] + '/'));
-const [probs, iv, compat, cases, dbx, certs] = await Promise.all([
+const [probs, iv, compat, cases, dbx, certs, config] = await Promise.all([
   load('assets/js/data/problems.js'), load('assets/js/data/interview.js'), load('assets/js/compat.js'),
   load('assets/js/data/cases.js'), load('assets/js/data/databricks.js'), load('assets/js/data/certs.js'),
+  load('assets/js/config.js'),
 ]);
 console.log(JSON.stringify({
   problems: probs.PROBLEMS, questions: iv.QUESTIONS, categories: iv.CATEGORIES, macros: compat.COMPAT_MACROS,
-  cases: cases.CASES, quiz: dbx.QUIZ, certs: certs.CERTS, checks: cases.CASES.flatMap((c) => c.dataCheck ? [c.dataCheck] : []),
+  cases: cases.CASES, quiz: dbx.QUIZ, certs: certs.CERTS, tables: config.TABLES, checks: cases.CASES.flatMap((c) => c.dataCheck ? [c.dataCheck] : []),
 }));
 """
     out = subprocess.run(["node", "--input-type=module", "-e", script, str(WEB)],
@@ -48,6 +50,20 @@ def make_duckdb(macros: list[str]) -> duckdb.DuckDBPyConnection:
     for m in macros:
         con.execute(m)
     return con
+
+
+def sql_tables(sql: str, known: set[str]) -> set[str]:
+    """SQL에서 FROM/JOIN 으로 참조한 샘플 테이블 (CTE 이름 제외)"""
+    ctes = {m.lower() for m in re.findall(r"(?:\bWITH\s+(?:RECURSIVE\s+)?|,\s*)([A-Za-z_]\w*)\s+AS\s*\(", sql, re.I)}
+    refs = {m.lower() for m in re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_]\w*)", sql, re.I)}
+    return (refs - ctes) & known
+
+
+def py_tables(code: str, known: set[str]) -> set[str]:
+    """pandas 코드에서 변수로 참조한 샘플 테이블 (문자열 리터럴, 속성 접근 제외)"""
+    stripped = re.sub(r"(\"[^\"]*\"|'[^']*')", "''", code)
+    # 키워드 인자(users=...)는 제외, 비교(users == ...)는 포함
+    return {m for m in re.findall(r"(?<![\w.])([A-Za-z_]\w*)\b(?!\s*=(?!=))", stripped) if m in known}
 
 
 def run_py(src: str):
@@ -97,6 +113,29 @@ def main() -> int:
     bad = asyncio.run(runtime.grade("result = users.head(1)", pd_prob["solution"], pd_prob["orderMatters"]))
     if not ok["ok"] or bad["ok"]:
         failures.append("grade(): 채점 로직 이상")
+
+    # 샘플 테이블 컬럼 정의가 실제 CSV 헤더와 같은지
+    known = {t["name"] for t in data["tables"]}
+    for t in data["tables"]:
+        header = (WEB / "data" / f"{t['name']}.csv").read_text(encoding="utf-8").splitlines()[0].split(",")
+        if header != t["columns"]:
+            failures.append(f"config.TABLES['{t['name']}'] 컬럼이 CSV 헤더와 다름: {header}")
+
+    # 문제에 표기한 사용 테이블 = 정답 풀이(SQL/pandas)가 실제로 쓰는 테이블
+    for p in data["problems"]:
+        declared = set(p.get("tables") or [])
+        if not declared:
+            failures.append(f"{p['id']}: 사용 테이블(tables) 표기 없음")
+            continue
+        if declared - known:
+            failures.append(f"{p['id']}: 존재하지 않는 테이블 {declared - known}")
+        for kind, src in (("solution", p["solution"]), ("pandasSolution", p.get("pandasSolution")), ("sqlSolution", p.get("sqlSolution"))):
+            if not src:
+                continue
+            is_sql = (kind == "solution" and p["lang"] == "sql") or kind == "sqlSolution"
+            used = sql_tables(src, known) if is_sql else py_tables(src, known)
+            if used != declared:
+                failures.append(f"{p['id']}: 표기 테이블 {sorted(declared)} ≠ {kind}에서 쓰는 테이블 {sorted(used)}")
 
     cats = {c["id"] for c in data["categories"]}
     for q in data["questions"]:
