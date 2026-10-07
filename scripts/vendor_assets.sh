@@ -24,7 +24,7 @@ npm init -y >/dev/null
 npm install --silent "@duckdb/duckdb-wasm@${DUCKDB_VER}" "pyodide@${PYODIDE_VER}" "codemirror@${CM_VER}" esbuild
 
 rm -rf "$OUT"
-mkdir -p "$OUT/duckdb" "$OUT/pyodide" "$OUT/codemirror/mode/sql" "$OUT/codemirror/mode/python" "$OUT/codemirror/addon/edit"
+mkdir -p "$OUT/duckdb" "$OUT/pyodide" "$OUT/codemirror/mode/sql" "$OUT/codemirror/mode/python"
 
 echo "→ DuckDB-WASM (apache-arrow 포함 ESM 번들)"
 D=node_modules/@duckdb/duckdb-wasm/dist
@@ -41,7 +41,12 @@ npx esbuild "$C/lib/codemirror.js" --minify --log-level=warning --outfile="$OUT/
 npx esbuild "$C/lib/codemirror.css" --minify --log-level=warning --outfile="$OUT/codemirror/codemirror.min.css"
 npx esbuild "$C/mode/sql/sql.js" --minify --log-level=warning --outfile="$OUT/codemirror/mode/sql/sql.min.js"
 npx esbuild "$C/mode/python/python.js" --minify --log-level=warning --outfile="$OUT/codemirror/mode/python/python.min.js"
-npx esbuild "$C/addon/edit/matchbrackets.js" --minify --log-level=warning --outfile="$OUT/codemirror/addon/edit/matchbrackets.min.js"
+# 에디터 편의 기능 애드온 (web/assets/js/editor.js 의 CM_ADDONS 와 같은 목록)
+for f in edit/matchbrackets edit/closebrackets comment/comment selection/active-line hint/show-hint; do
+  mkdir -p "$OUT/codemirror/addon/$(dirname "$f")"
+  npx esbuild "$C/addon/$f.js" --minify --log-level=warning --outfile="$OUT/codemirror/addon/$f.min.js"
+done
+npx esbuild "$C/addon/hint/show-hint.css" --minify --log-level=warning --outfile="$OUT/codemirror/addon/hint/show-hint.min.css"
 
 du -sh "$OUT"
 echo "완료: http://localhost:8000/?vendor=local 로 접속하세요 (python -m http.server 8000 -d web)"

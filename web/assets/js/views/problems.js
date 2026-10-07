@@ -84,6 +84,7 @@ export default {
       lang: p.lang === 'sql' ? 'sql' : 'python',
       value: store.get(draftKey, starter(p)),
       onRun: () => run(),
+      onGrade: () => grade(),
     });
     const save = () => store.set(draftKey, editor.getValue());
     const related = QUESTIONS.filter((q) => q.practice === p.id);
@@ -93,11 +94,11 @@ export default {
       out.replaceChildren(loadingLine(p.lang === 'pandas' && engineState.pyodide !== 'ready' ? 'Python 엔진 준비 중… (처음 한 번 10~20초)' : '실행 중…'));
       try {
         if (p.lang === 'sql') {
-          const res = await runSQL(editor.getValue());
+          const res = await runSQL(editor.getRunText());
           out.replaceChildren(resultTable(res));
         } else {
           await getPyodide();
-          const res = await runPython(editor.getValue());
+          const res = await runPython(editor.getRunText());
           out.replaceChildren(renderPyOutput(res));
         }
       } catch (e) {
@@ -181,8 +182,8 @@ export default {
       extra);
 
     editor.el.append(h('div', { class: 'editor-bar' },
-      h('button', { class: 'btn', type: 'button', onclick: run }, '▶ 실행'),
-      h('button', { class: 'btn primary', type: 'button', onclick: grade }, '채점'),
+      h('button', { class: 'btn', type: 'button', onclick: run, title: 'Ctrl+Enter (선택 영역만 실행 가능)' }, '▶ 실행'),
+      h('button', { class: 'btn primary', type: 'button', onclick: grade, title: 'Ctrl+Shift+Enter' }, '채점'),
       h('button', { class: 'btn ghost sm', type: 'button', onclick: () => hintEl.replaceChildren(h('div', { class: 'callout info md', style: { marginTop: '10px' }, html: md('**힌트**: ' + p.hint) })) }, '힌트'),
       h('button', {
         class: 'btn ghost sm', type: 'button',

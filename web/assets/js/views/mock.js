@@ -1,5 +1,6 @@
 import { h, md, store, toast } from '../util.js';
 import { CATEGORIES, LEVELS, QUESTIONS } from '../data/interview.js';
+import { miniItem } from './interview.js';
 
 const catName = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.name]));
 const RATING = [
@@ -178,7 +179,7 @@ export default {
           h('h3', null, '모범 답변'),
           h('p', { class: 'small muted' }, `면접관 의도: ${q.intent}`),
           h('div', { class: 'md', html: md(q.answer) }),
-          q.followups?.length ? h('div', null, h('h4', null, '꼬리 질문도 대비하세요'), h('ul', null, q.followups.map((f) => h('li', null, f)))) : null)));
+          q.followups?.length ? h('div', null, h('h4', null, '꼬리 질문도 대비하세요'), h('div', { class: 'mini-qa' }, q.followups.map((f) => miniItem(f.q, f.a, 'Q')))) : null)));
     window.scrollTo(0, 0);
   },
 

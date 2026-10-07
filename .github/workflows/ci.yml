@@ -22,6 +22,8 @@ jobs:
         run: python tests/validate_content.py
       - name: Validate statistics functions against scipy
         run: python tests/test_stats.py
+      - name: Autocomplete ranking
+        run: node tests/test_completion.mjs
       - name: Notebooks are up to date
         run: |
           python scripts/build_notebooks.py

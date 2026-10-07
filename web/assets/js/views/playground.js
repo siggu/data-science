@@ -1,7 +1,7 @@
 import { h, md, resultTable, toast, toCsv, downloadText, store } from '../util.js';
 import { TABLES } from '../config.js';
 import { COMPAT_MACROS } from '../compat.js';
-import { createEditor } from '../editor.js';
+import { createEditor, refreshCompletionSchema } from '../editor.js';
 import { renderPyOutput, renderError, loadingLine } from '../components.js';
 import {
   getDuckDB, runSQL, listSchema, registerCsvInDuckDB, onEngineState, engineState,
@@ -50,7 +50,7 @@ export default {
     el.append(
       h('div', { class: 'page-head' },
         h('h1', null, 'SQL · pandas 플레이그라운드'),
-        h('p', null, '브라우저에서 실행되는 연습 환경입니다. 서버나 설치가 필요 없고, 데이터는 내 컴퓨터 밖으로 나가지 않습니다. SQL은 Databricks SQL과 문법이 가장 비슷한 DuckDB로 실행되며, 자주 쓰는 Spark SQL 함수(datediff, date_format, nvl, collect_list 등)는 호환 매크로로 그대로 쓸 수 있습니다. ', h('kbd', null, 'Ctrl'), ' + ', h('kbd', null, 'Enter'), '로 실행합니다.')),
+        h('p', null, '브라우저에서 실행되는 연습 환경입니다. 서버나 설치가 필요 없고, 데이터는 내 컴퓨터 밖으로 나가지 않습니다. SQL은 Databricks SQL과 문법이 가장 비슷한 DuckDB로 실행되며, 자주 쓰는 Spark SQL 함수(datediff, date_format, nvl, collect_list 등)는 호환 매크로로 그대로 쓸 수 있습니다. ', h('kbd', null, 'Ctrl'), ' + ', h('kbd', null, 'Enter'), '로 실행합니다 (선택한 부분만 실행 가능). 입력하면 테이블·컬럼·함수 자동 완성 목록이 뜨고 ', h('kbd', null, 'Tab'), '으로 완성합니다.')),
       h('div', { class: 'split' },
         h('aside', { class: 'sticky-side stack' },
           h('div', { class: 'card flat' }, h('h3', null, '샘플 데이터베이스'), h('p', { class: 'small muted' }, '이커머스 서비스의 2025년 1년치 가상 데이터입니다. 컬럼을 클릭하면 에디터에 삽입됩니다.'), this.schemaEl),
@@ -74,6 +74,13 @@ export default {
       this.setMode('sql');
       this.sqlEditor.setValue(inject);
       this.runSql();
+    }
+    const injectPy = store.get('pg:injectPy', null);
+    if (injectPy) {
+      store.set('pg:injectPy', null);
+      this.setMode('pandas');
+      this.pyEditor.setValue(injectPy);
+      this.runPy();
     }
   },
 
@@ -140,8 +147,8 @@ export default {
   },
 
   async runSql() {
-    const code = this.sqlEditor.getValue();
-    store.set('pg:sql', code);
+    store.set('pg:sql', this.sqlEditor.getValue());
+    const code = this.sqlEditor.getRunText();
     if (!code.trim()) return;
     this.sqlOut.replaceChildren(loadingLine('실행 중…'));
     try {
@@ -155,8 +162,8 @@ export default {
   },
 
   async runPy() {
-    const code = this.pyEditor.getValue();
-    store.set('pg:py', code);
+    store.set('pg:py', this.pyEditor.getValue());
+    const code = this.pyEditor.getRunText();
     if (!code.trim()) return;
     await this.ensurePython();
     if (engineState.pyodide !== 'ready') return;
@@ -188,6 +195,7 @@ export default {
   async refreshSchema() {
     try {
       const tables = await listSchema();
+      refreshCompletionSchema();
       const desc = Object.fromEntries(TABLES.map((t) => [t.name, t.desc]));
       this.schemaEl.replaceChildren(...tables.map((t) => {
         const d = h('details', { class: 'schema-table' },

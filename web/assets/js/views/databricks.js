@@ -70,6 +70,7 @@ export default {
           answers[i] = oi;
           store.set('dbx:quiz', answers);
           paint();
+          opts.forEach((x) => { x.disabled = true; });
           exp.hidden = false;
           updateScore();
         } }, `${String.fromCharCode(65 + oi)}. ${o}`);
@@ -80,7 +81,8 @@ export default {
         b.classList.toggle('wrong', answers[i] === oi && oi !== q.answer);
       });
       paint();
-      return h('div', { class: 'card' }, h('div', { class: 'small muted' }, `문항 ${i + 1}`), h('h4', { style: { margin: '4px 0 6px' } }, q.q), opts, exp);
+      if (answers[i] != null) opts.forEach((b) => { b.disabled = true; });
+      return h('div', { class: 'card quiz-card' }, h('div', { class: 'small muted' }, `문항 ${i + 1}`), h('h4', { style: { margin: '4px 0 6px' } }, q.q), opts, exp);
     });
     return h('div', { class: 'stack' },
       h('div', { class: 'grid grid-2' },

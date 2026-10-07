@@ -43,8 +43,8 @@ export const QUESTIONS = [
 
       **성능 관점**: 집계와 무관한 조건은 HAVING이 아니라 WHERE에 두는 것이 좋습니다. 집계할 행 수 자체가 줄어들기 때문입니다.`,
     keyPoints: ['WHERE = 집계 전 행 필터, HAVING = 집계 후 그룹 필터', '논리적 실행 순서(FROM→WHERE→GROUP BY→HAVING→SELECT→ORDER BY)', 'WHERE에서 집계함수 사용 불가', '가능한 조건은 WHERE로 (성능)'],
-    pitfalls: ['"HAVING은 GROUP BY와 같이 쓰는 WHERE"라고만 답하고 실행 순서를 설명하지 못함', '집계와 무관한 조건을 HAVING에 넣는 습관'],
-    followups: ['SELECT에서 정의한 별칭을 WHERE에서 쓸 수 있나요? (Databricks/DuckDB는 일부 허용, 표준은 불가)', 'QUALIFY는 무엇이고 언제 쓰나요?'],
+    pitfalls: [{ text: "\"HAVING은 GROUP BY와 같이 쓰는 WHERE\"라고만 답하고 실행 순서를 설명하지 못함", fix: "실행 순서(FROM → WHERE → GROUP BY → HAVING → SELECT)와 함께 \"WHERE는 집계 전 행, HAVING은 집계 후 그룹\"이라고 답하세요." }, { text: "집계와 무관한 조건을 HAVING에 넣는 습관", fix: "`status = 'completed'`처럼 집계와 무관한 조건은 WHERE에 두세요. 집계할 행이 먼저 줄어 더 빠릅니다." }],
+    followups: [{ q: "SELECT에서 정의한 별칭을 WHERE에서 쓸 수 있나요?", a: "표준 SQL에서는 불가합니다. WHERE가 SELECT보다 먼저 실행되기 때문입니다. DuckDB나 Databricks는 일부 허용하지만, 이식성을 생각하면 CTE나 서브쿼리로 감싸는 것이 안전합니다." }, { q: "QUALIFY는 무엇이고 언제 쓰나요?", a: "윈도우 함수 결과로 행을 거르는 절입니다. \"그룹별 최신 1건\"(`QUALIFY ROW_NUMBER() OVER (...) = 1`)처럼 서브쿼리 없이 필터링할 때 씁니다. Databricks와 DuckDB는 지원하고, 오픈소스 Spark와 MySQL은 지원하지 않습니다." }],
     practice: 'sql-02',
   },
   {
@@ -76,8 +76,8 @@ export const QUESTIONS = [
       GROUP BY u.user_id
       \`\`\``,
     keyPoints: ['INNER/LEFT/FULL/CROSS/SELF 구분', '오른쪽 테이블 필터는 ON 절에 (WHERE면 INNER화)', '1:N 조인 시 행 증식 → 먼저 집계 또는 DISTINCT', '매칭 없는 행 NULL → COALESCE'],
-    pitfalls: ['조인 후 SUM했더니 매출이 부풀려지는 팬아웃(fan-out) 문제를 모름', 'NOT IN 서브쿼리에 NULL이 섞이면 결과가 비는 문제를 모름'],
-    followups: ['주문이 한 번도 없는 유저를 찾는 쿼리를 세 가지 방법으로 작성해 보세요. (LEFT JOIN + IS NULL, NOT EXISTS, EXCEPT)'],
+    pitfalls: [{ text: "조인 후 SUM했더니 매출이 부풀려지는 팬아웃(fan-out) 문제를 모름", fix: "1:N 조인 전에 N쪽을 키 단위로 먼저 집계하고, 조인 전후 행 수와 합계를 비교해 검증하세요." }, { text: "NOT IN 서브쿼리에 NULL이 섞이면 결과가 비는 문제를 모름", fix: "`NOT EXISTS`나 `LEFT JOIN ... WHERE b.key IS NULL`을 쓰세요. NULL이 있어도 안전합니다." }],
+    followups: [{ q: "주문이 한 번도 없는 유저를 찾는 쿼리를 세 가지 방법으로 작성해 보세요.", a: "① `LEFT JOIN orders o ... WHERE o.user_id IS NULL` ② `WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.user_id)` ③ `SELECT user_id FROM users EXCEPT SELECT user_id FROM orders`. NULL에 취약한 `NOT IN`은 피합니다." }],
     practice: 'sql-04',
   },
   {
@@ -108,8 +108,8 @@ export const QUESTIONS = [
       QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY order_ts DESC) = 1
       \`\`\``,
     keyPoints: ['행을 유지한 채 그룹 기준 계산 (GROUP BY와 차이)', 'PARTITION BY / ORDER BY / 프레임 구성', '동점 처리: ROW_NUMBER 고유, RANK 건너뜀, DENSE_RANK 연속', '활용 예: 최신 1건, N번째 값, 누적합, 이동평균, LAG'],
-    pitfalls: ['ROWS와 RANGE 프레임 차이를 모름 (ORDER BY만 쓰면 기본 프레임이 RANGE UNBOUNDED PRECEDING ~ CURRENT ROW라 동점 행이 함께 합산됨)', '윈도우 함수 결과를 WHERE에서 바로 필터링하려 함'],
-    followups: ['부서별 급여 상위 2명을 뽑아보세요.', '윈도우 함수 결과로 필터링하려면 어떻게 하나요?'],
+    pitfalls: [{ text: "ROWS와 RANGE 프레임 차이를 모름", fix: "ORDER BY만 쓰면 기본 프레임이 RANGE라 정렬 값이 같은 행이 함께 합산됩니다. 행 단위 누적이 필요하면 `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`를 명시하세요." }, { text: "윈도우 함수 결과를 WHERE에서 바로 필터링하려 함", fix: "윈도우 함수는 WHERE 이후에 계산됩니다. `QUALIFY`(Databricks/DuckDB)를 쓰거나 서브쿼리·CTE로 감싼 뒤 바깥에서 필터링하세요." }],
+    followups: [{ q: "부서별 급여 상위 2명을 뽑아보세요.", a: "`DENSE_RANK() OVER (PARTITION BY dept_id ORDER BY salary DESC) AS rk`를 구한 뒤 `rk <= 2`로 필터링합니다. 동점을 포함할지에 따라 ROW_NUMBER와 DENSE_RANK 중 고릅니다." }, { q: "윈도우 함수 결과로 필터링하려면 어떻게 하나요?", a: "`QUALIFY`를 쓰거나, 서브쿼리·CTE에서 윈도우 컬럼을 만든 뒤 바깥 쿼리의 WHERE에서 필터링합니다." }],
     practice: 'sql-07',
   },
   {
@@ -143,8 +143,8 @@ export const QUESTIONS = [
 
       바깥에 \`MAX()\`를 씌우는 이유는 **해당 순위가 없을 때 빈 결과 대신 NULL을 반환**하기 위해서입니다. N번째로 일반화하려면 방법 1의 \`rk = N\`만 바꾸면 됩니다.`,
     keyPoints: ['동점/결과 없음 엣지 케이스를 먼저 질문', 'DENSE_RANK로 일반화', '서브쿼리 MAX(salary) < MAX 방식', '결과 없을 때 NULL 반환 처리'],
-    pitfalls: ['ROW_NUMBER를 써서 동점 시 같은 급여가 2등으로 나옴', 'DISTINCT 없이 OFFSET 1을 써서 동점 1등이 2등으로 나옴'],
-    followups: ['부서별 두 번째로 높은 급여는요?'],
+    pitfalls: [{ text: "ROW_NUMBER를 써서 동점 시 같은 급여가 2등으로 나옴", fix: "\"N번째로 높은 값\"은 값 기준 순위이므로 `DENSE_RANK`를 쓰세요." }, { text: "DISTINCT 없이 OFFSET 1을 써서 동점 1등이 2등으로 나옴", fix: "`SELECT DISTINCT salary ... ORDER BY salary DESC LIMIT 1 OFFSET 1`처럼 중복부터 제거하세요." }],
+    followups: [{ q: "부서별 두 번째로 높은 급여는요?", a: "`DENSE_RANK() OVER (PARTITION BY dept_id ORDER BY salary DESC) = 2`인 행을 부서별로 뽑습니다. 2등이 없는 부서도 보여야 하면 부서 테이블에 LEFT JOIN합니다." }],
     practice: 'sql-06',
   },
   {
@@ -174,8 +174,8 @@ export const QUESTIONS = [
 
       완전 중복이면 \`SELECT DISTINCT *\`로도 충분합니다. Databricks Delta 테이블이라면 \`MERGE INTO\`나 \`CREATE OR REPLACE TABLE ... AS SELECT\`로 정리하고, 근본적으로는 **중복이 생긴 원인**(재시도 로직, 조인 팬아웃, 중복 적재)을 찾아 파이프라인에서 막는 것이 중요합니다.`,
     keyPoints: ['중복 기준(키) 먼저 정의', 'GROUP BY + HAVING COUNT(*) > 1로 탐지', 'ROW_NUMBER로 남길 행 규칙 지정 후 제거', '원인 파악(파이프라인/조인)까지 언급'],
-    pitfalls: ['남길 행의 기준(ORDER BY) 없이 임의로 제거', 'DISTINCT로 모든 것을 해결하려 함'],
-    followups: ['pandas에서는 어떻게 하나요? (duplicated, drop_duplicates(subset, keep))'],
+    pitfalls: [{ text: "남길 행의 기준(ORDER BY) 없이 임의로 제거", fix: "`ROW_NUMBER() OVER (PARTITION BY 키 ORDER BY 적재시각 DESC)`처럼 어떤 행을 남길지 규칙을 명시하세요. 그래야 실행할 때마다 결과가 같습니다." }, { text: "DISTINCT로 모든 것을 해결하려 함", fix: "DISTINCT는 모든 컬럼이 같은 완전 중복만 제거합니다. 키는 같은데 일부 컬럼이 다른 논리 중복은 ROW_NUMBER로 처리하세요." }],
+    followups: [{ q: "pandas에서는 어떻게 하나요?", a: "찾기는 `df.duplicated(subset=[...], keep=False)`, 제거는 `df.sort_values('ts').drop_duplicates(subset=[...], keep='last')`입니다. 정렬로 남길 행을 정합니다." }],
     practice: 'sql-05',
   },
   {
@@ -203,8 +203,8 @@ export const QUESTIONS = [
       - \`ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\`는 '7개 행'이지 '7일'이 아닙니다. **주문이 없는 날이 있으면 기간이 틀어지므로** 날짜 차원(calendar) 테이블을 만들어 LEFT JOIN한 뒤 0으로 채우거나, \`RANGE BETWEEN INTERVAL 6 DAYS PRECEDING AND CURRENT ROW\`를 사용합니다.
       - 처음 6일은 7일치가 없으므로 이동평균이 불완전합니다. 필요하면 \`COUNT(*) OVER (...) = 7\`인 경우만 표시합니다.`,
     keyPoints: ['윈도우 프레임 ROWS BETWEEN 6 PRECEDING AND CURRENT ROW', '누적합 UNBOUNDED PRECEDING', '빈 날짜 문제 → 날짜 테이블 LEFT JOIN 또는 RANGE INTERVAL', '초기 구간 불완전 처리'],
-    pitfalls: ['빈 날짜를 고려하지 않아 "7행 평균"을 "7일 평균"으로 보고', 'ORDER BY만 쓰고 프레임을 생략해 동일 날짜 처리 오류'],
-    followups: ['전주 같은 요일 대비 증감률(WoW)은 어떻게 구하나요? (LAG(revenue, 7))'],
+    pitfalls: [{ text: "빈 날짜를 고려하지 않아 \"7행 평균\"을 \"7일 평균\"으로 보고", fix: "날짜 테이블과 LEFT JOIN해 빈 날을 0으로 채우거나 `RANGE BETWEEN INTERVAL 6 DAYS PRECEDING AND CURRENT ROW`를 쓰세요." }, { text: "ORDER BY만 쓰고 프레임을 생략해 동일 날짜 처리 오류", fix: "프레임(`ROWS BETWEEN ...`)을 항상 명시하는 습관을 들이세요." }],
+    followups: [{ q: "전주 같은 요일 대비 증감률(WoW)은 어떻게 구하나요?", a: "빈 날짜 없는 일별 테이블에서 `LAG(revenue, 7) OVER (ORDER BY dt)`로 7일 전 값을 가져와 `(revenue - prev) / prev`를 계산합니다." }],
     practice: 'sql-09',
   },
   {
@@ -248,8 +248,8 @@ export const QUESTIONS = [
       - **관측 기간이 덜 찬 코호트**(예: 12월 가입자의 3개월차)는 0%가 아니라 '측정 불가'로 비워야 합니다.
       - 월 단위는 가입일이 월초인지 월말인지에 따라 편차가 크므로, 정밀하게는 **가입일 기준 N일차(D1, D7, D30)** 리텐션을 함께 봅니다.`,
     keyPoints: ['코호트·활동·리텐션 종류 정의 먼저', '코호트 CTE + 활동 CTE + 기간차 계산', '분모 = 코호트 전체 인원', '관측 기간 미달 코호트는 제외/표시', '월 단위 vs N일차 리텐션 차이'],
-    pitfalls: ['분모를 잘못 잡아 리텐션 과대 추정', '미완성 코호트를 0%로 표시해 리텐션이 떨어진 것처럼 보임'],
-    followups: ['리텐션이 떨어지고 있다면 어떤 분석을 추가로 하시겠어요?', 'pandas로는 어떻게 구현하나요?'],
+    pitfalls: [{ text: "분모를 잘못 잡아 리텐션 과대 추정", fix: "분모는 활동 테이블과 조인하기 전의 코호트 전체 인원입니다. 코호트 크기를 따로 집계해 붙이세요." }, { text: "미완성 코호트를 0%로 표시해 리텐션이 떨어진 것처럼 보임", fix: "관측 기간이 부족한 칸은 NULL(측정 불가)로 두거나, 관측이 끝난 코호트만 비교하세요." }],
+    followups: [{ q: "리텐션이 떨어지고 있다면 어떤 분석을 추가로 하시겠어요?", a: "어느 코호트와 몇 주차부터 떨어졌는지 보고, 유입 채널·플랫폼별로 분해해 구성비 변화인지 확인합니다. 리텐션 유저와 이탈 유저의 초기 행동(Aha moment)을 비교하고, 같은 시기의 제품 변경과 대조합니다." }, { q: "pandas로는 어떻게 구현하나요?", a: "`dt.to_period('M')`로 가입 월과 활동 월을 만들고 merge합니다. `month_n = (active - cohort).apply(lambda d: d.n)`을 구한 뒤 `groupby(['cohort', 'month_n']).user_id.nunique()`를 코호트 크기로 나누고 `pivot`합니다." }],
     practice: 'sql-14',
   },
   {
@@ -283,8 +283,8 @@ export const QUESTIONS = [
 
       **해석까지 연결**: 단계별 전환율(step conversion)과 전체 전환율(overall)을 구분해 보여주고, 가장 이탈이 큰 단계를 플랫폼·유입 채널별로 쪼개 원인을 찾습니다. 순서를 강제해야 한다면 각 단계의 최초 시각(\`MIN(CASE WHEN ... THEN event_ts END)\`)을 구해 \`view_ts <= cart_ts\` 조건을 추가합니다.`,
     keyPoints: ['퍼널 단위(유저/세션), 순서, 기간 정의', 'CASE WHEN 조건부 집계로 단계 플래그', '단계별 전환율 vs 전체 전환율', '세그먼트별 분해로 원인 탐색'],
-    pitfalls: ['이벤트 수(COUNT(*))로 전환율을 계산해 중복 이벤트에 왜곡', '단계 순서를 고려하지 않음'],
-    followups: ['플랫폼별로 비교하면? 웹의 결제 전환율이 낮다면 어떤 가설을 세우나요?'],
+    pitfalls: [{ text: "이벤트 수(COUNT(*))로 전환율을 계산해 중복 이벤트에 왜곡", fix: "퍼널 단위(유저나 세션)로 \"도달 여부\"를 먼저 만들고 그 단위로 세세요 (`COUNT(DISTINCT session_id)`)." }, { text: "단계 순서를 고려하지 않음", fix: "단계별 최초 시각(`MIN(CASE WHEN ... THEN ts END)`)을 구해 `view_ts <= cart_ts <= purchase_ts` 조건을 추가하세요." }],
+    followups: [{ q: "플랫폼별로 비교하면? 웹의 결제 전환율이 낮다면 어떤 가설을 세우나요?", a: "먼저 어느 단계에서 이탈하는지 쪼개 봅니다. 가설로는 웹 결제 UI·간편결제 미지원, 비회원·저의도 트래픽 비중, 페이지 속도, 브라우저별 오류가 있고, 단계별 전환율과 에러 로그로 검증합니다." }],
     practice: 'sql-12',
   },
   {
@@ -320,8 +320,8 @@ export const QUESTIONS = [
 
       반드시 **하루 여러 번 접속을 DISTINCT로 먼저 제거**해야 합니다.`,
     keyPoints: ['날짜 단위 DISTINCT 선처리', '날짜 - ROW_NUMBER = 그룹 키 아이디어', 'GROUP BY 그룹 키 HAVING COUNT >= N', 'LAG 대안 및 일반화 가능성'],
-    pitfalls: ['같은 날 여러 이벤트를 제거하지 않아 연속 판정 오류', '셀프 조인을 3번 해서 N 일반화가 불가능한 쿼리'],
-    followups: ['유저별 최장 연속 접속일은?'],
+    pitfalls: [{ text: "같은 날 여러 이벤트를 제거하지 않아 연속 판정 오류", fix: "`SELECT DISTINCT user_id, CAST(ts AS DATE)`로 하루 한 행을 먼저 만드세요." }, { text: "셀프 조인을 3번 해서 N 일반화가 불가능한 쿼리", fix: "\"날짜 - ROW_NUMBER\" 그룹 키 방식을 쓰면 N이 바뀌어도 `HAVING COUNT(*) >= N`만 고치면 됩니다." }],
+    followups: [{ q: "유저별 최장 연속 접속일은?", a: "\"날짜 - ROW_NUMBER\"로 만든 그룹 키별로 `COUNT(*)`를 구하고, 유저별 `MAX`를 구합니다." }],
     practice: 'sql-15',
   },
   {
@@ -338,8 +338,8 @@ export const QUESTIONS = [
 
       예시: 쿠폰 사용률을 \`COUNT(coupon_code) / COUNT(*)\`로 구할 수 있는 것도 이 성질 덕분입니다.`,
     keyPoints: ['NULL 비교는 IS NULL (= NULL은 UNKNOWN)', 'COUNT(*) vs COUNT(col)', '집계함수는 NULL 무시 → AVG 왜곡 주의, COALESCE', 'NOT IN + NULL 함정 → NOT EXISTS'],
-    pitfalls: ['결측을 0으로 채워야 할지 제외해야 할지 판단 없이 기계적으로 처리'],
-    followups: ['pandas에서 NaN과 None, pd.NA의 차이는?'],
+    pitfalls: [{ text: "결측을 0으로 채워야 할지 제외해야 할지 판단 없이 기계적으로 처리", fix: "\"값이 0이다\"(주문 없음 = 매출 0)와 \"값을 모른다\"(측정 누락)를 구분하세요. 앞의 경우는 COALESCE(x, 0), 뒤의 경우는 제외하거나 따로 표시합니다." }],
+    followups: [{ q: "pandas에서 NaN과 None, pd.NA의 차이는?", a: "`NaN`은 float형 결측(넘파이), `None`은 파이썬 객체(object 컬럼), `pd.NA`는 nullable dtype(`Int64`, `string`, `boolean`)의 통일된 결측값입니다. 판정은 모두 `isna()`로 합니다." }],
     practice: 'sql-03',
   },
   {
@@ -364,8 +364,8 @@ export const QUESTIONS = [
       - 같은 서브쿼리를 반복하면 중간 결과를 테이블로 저장(materialize)합니다.
       - 작은 파일이 많으면 \`OPTIMIZE\`로 파일을 합칩니다.`,
     keyPoints: ['실행계획/Query Profile로 병목 측정', '필요 컬럼만, 파티션 프루닝되도록 필터', '조인 전 필터/집계, broadcast join', 'Z-ORDER/클러스터링, OPTIMIZE, 근사 집계'],
-    pitfalls: ['"인덱스를 건다"만 답함 (분석용 레이크하우스에는 전통적 인덱스가 없음)'],
-    followups: ['데이터 스큐(skew)가 있으면 어떻게 하나요?'],
+    pitfalls: [{ text: "\"인덱스를 건다\"만 답함", fix: "레이크하우스에는 전통적 인덱스가 없습니다. 파티션 프루닝, Z-ORDER/Liquid Clustering, 필요한 컬럼만 읽기, 조인 전 필터링, broadcast join을 말하세요." }],
+    followups: [{ q: "데이터 스큐(skew)가 있으면 어떻게 하나요?", a: "Spark UI에서 특정 태스크만 오래 걸리면 스큐입니다. AQE의 skew join 최적화를 켜거나, 작은 쪽을 broadcast하거나, 핫 키에 salting(랜덤 접미사)을 붙이거나, 핫 키만 따로 처리합니다." }],
   },
   {
     id: 'sql-cte-union', cat: 'sql', level: 1,
@@ -383,7 +383,7 @@ export const QUESTIONS = [
 
       실무에서는 **"CTE로 단계별 로직을 쪼개고, 각 단계 결과를 따로 확인하는 습관"**이 정확도를 높입니다.`,
     keyPoints: ['UNION은 중복 제거(비용), UNION ALL은 유지', 'CTE는 가독성/재사용, 단계별 검증', '재귀 CTE 활용'],
-    followups: ['상관 서브쿼리(correlated subquery)란?'],
+    followups: [{ q: "상관 서브쿼리(correlated subquery)란?", a: "바깥 쿼리의 컬럼을 참조해 바깥 행마다 다시 평가되는 서브쿼리입니다(예: `EXISTS (SELECT 1 FROM o WHERE o.user_id = u.user_id)`). 대용량에서는 조인이나 윈도우 함수로 바꾸는 것이 빠른 경우가 많습니다." }],
     practice: 'sql-08',
   },
 
@@ -404,7 +404,7 @@ export const QUESTIONS = [
 
       **실무 팁**: 값을 바꿀 때는 \`df.loc[mask, 'col'] = value\`처럼 **한 번에 loc으로 할당**해야 \`SettingWithCopyWarning\`(체인 할당 문제)을 피할 수 있습니다.`,
     keyPoints: ['loc = 라벨/불리언, iloc = 정수 위치', '슬라이스 끝 포함(loc) vs 제외(iloc)', '할당은 df.loc[mask, col] = v로'],
-    followups: ['df[df.a > 0]["b"] = 1 이 왜 문제인가요?'],
+    followups: [{ q: "df[df.a > 0][\"b\"] = 1 이 왜 문제인가요?", a: "체인 인덱싱이라 중간 결과가 복사본일 수 있어 원본이 바뀌지 않습니다(SettingWithCopyWarning, pandas 3.0에서는 아예 바뀌지 않음). `df.loc[df.a > 0, \"b\"] = 1`로 한 번에 할당하세요." }],
     practice: 'pd-01',
   },
   {
@@ -429,7 +429,7 @@ export const QUESTIONS = [
 
       그 밖에 \`apply\`는 그룹별로 임의 함수를 실행해 가장 유연하지만 느립니다. \`filter\`는 그룹 단위로 행을 남기거나 버립니다 (SQL의 HAVING과 비슷). 순위는 \`groupby().rank()\`, 누적합은 \`groupby().cumsum()\`, 이전 값은 \`groupby().shift()\`를 씁니다.`,
     keyPoints: ['agg = 그룹당 1행 (GROUP BY)', 'transform = 원래 행 수 유지 (윈도우 함수)', 'named aggregation 문법', 'apply는 유연하지만 느림, filter는 HAVING'],
-    followups: ['그룹별 상위 3개 행은 어떻게 뽑나요? (sort_values + groupby().head(3) 또는 nlargest)'],
+    followups: [{ q: "그룹별 상위 3개 행은 어떻게 뽑나요?", a: "`df.sort_values('v', ascending=False).groupby('g').head(3)` 또는 `df.groupby('g', group_keys=False).apply(lambda x: x.nlargest(3, 'v'))`입니다. 동점까지 포함하려면 `rank(method='dense') <= 3`을 씁니다." }],
     practice: 'pd-04',
   },
   {
@@ -469,7 +469,7 @@ export const QUESTIONS = [
 
       **3) 결측 처리 전후로 결론이 바뀌는지 확인**(민감도 분석)하고, 처리 방식을 리포트에 명시합니다.`,
     keyPoints: ['결측 비율·패턴 파악 먼저', '결측 원인(구조적/수집오류/MCAR·MAR·MNAR) 구분', '삭제/대치/플래그 방법과 선택 기준', '처리 방식의 영향 확인 및 문서화'],
-    pitfalls: ['무조건 평균으로 채움', '결측이 의미 있는 정보(미사용 등)인 경우를 놓침'],
+    pitfalls: [{ text: "무조건 평균으로 채움", fix: "결측 원인을 먼저 확인하고, 치우친 분포는 중앙값, 그룹 차이가 크면 그룹별 대치, 원인이 의미 있으면 결측 플래그를 쓰세요." }, { text: "결측이 의미 있는 정보(미사용 등)인 경우를 놓침", fix: "쿠폰 미사용처럼 구조적 결측은 `fillna('NONE')`이나 `is_missing` 컬럼으로 정보를 살리세요." }],
     practice: 'pd-02',
   },
   {
@@ -545,8 +545,8 @@ export const QUESTIONS = [
 
       0.05는 관례일 뿐이므로, 실무에서는 비즈니스 리스크에 따라 유의수준을 사전에 정합니다.`,
     keyPoints: ['귀무가설이 참이라는 가정 하에 관측값 이상 극단적일 확률', '쉬운 비유로 설명', '귀무가설이 참일 확률이 아님', '효과 크기·신뢰구간과 함께 해석', 'p>0.05 ≠ 효과 없음'],
-    pitfalls: ['"귀무가설이 맞을 확률"이라고 정의', '정의만 외우고 비즈니스 언어로 번역하지 못함'],
-    followups: ['p-value가 0.051이 나왔습니다. 어떻게 하시겠어요?'],
+    pitfalls: [{ text: "\"귀무가설이 맞을 확률\"이라고 정의", fix: "\"귀무가설이 참이라고 가정할 때, 지금처럼 또는 더 극단적인 결과가 나올 확률\"이라고 정의하세요." }, { text: "정의만 외우고 비즈니스 언어로 번역하지 못함", fix: "\"효과가 없다고 쳐도 우연히 이 정도 차이가 날 확률이 3%라 우연으로 보기 어렵다\"처럼 한 문장으로 바꿔 말하는 연습을 하세요." }],
+    followups: [{ q: "p-value가 0.051이 나왔습니다. 어떻게 하시겠어요?", a: "사전에 정한 α=0.05 기준으로는 \"유의하지 않음\"입니다. 기준을 사후에 바꾸지 않습니다. 대신 효과 크기와 신뢰구간, 검정력을 함께 보고하고, 의미 있는 효과로 보이면 표본을 충분히 늘린 재실험을 제안합니다." }],
   },
   {
     id: 'st-errors', cat: 'stats', level: 1,
@@ -566,7 +566,7 @@ export const QUESTIONS = [
 
       비즈니스 예: 결제 플로우처럼 잘못 출시하면 손실이 큰 실험은 α를 더 엄격하게, 빠른 탐색이 중요한 UI 실험은 다소 느슨하게 설정할 수 있습니다.`,
     keyPoints: ['1종 = 거짓 양성(α), 2종 = 거짓 음성(β)', '검정력 = 1-β, 보통 80%', '검정력 결정 요인(표본, 효과크기, 분산, α)', 'α-β 트레이드오프와 사전 표본 크기 계산', '비즈니스 비용과 연결'],
-    followups: ['검정력이 낮은 실험에서 유의한 결과가 나오면 어떤 문제가 있나요? (효과 과대추정, winner\'s curse)'],
+    followups: [{ q: "검정력이 낮은 실험에서 유의한 결과가 나오면 어떤 문제가 있나요?", a: "유의성을 넘으려면 우연히 크게 나와야 하므로 효과 크기가 과대 추정됩니다(winner's curse). 거짓 양성일 가능성도 높아 재현이 잘 되지 않습니다. 재실험이나 출시 후 홀드아웃으로 확인합니다." }],
   },
   {
     id: 'st-ci', cat: 'stats', level: 2,
@@ -633,7 +633,7 @@ export const QUESTIONS = [
       예) 전체로는 B안 전환율이 높지만, iOS와 Android를 각각 보면 둘 다 A안이 높습니다 → B안 트래픽에 전환율이 원래 높은 iOS 비중이 많았기 때문입니다 (그룹 구성 차이 = 교란).
       → 그래서 비교할 때는 **세그먼트별로도 확인**하고, 실험에서는 무작위 배정으로 구성 차이를 없앱니다.`,
     keyPoints: ['교란 변수, 역인과, 선택 편향', '인과 = 무작위 실험, 불가 시 준실험(DiD, PSM, RDD)', '심슨의 역설 정의 + 예시', '세그먼트별 확인의 중요성'],
-    followups: ['쿠폰 발행이 재구매에 미치는 효과를 실험 없이 추정해야 한다면?'],
+    followups: [{ q: "쿠폰 발행이 재구매에 미치는 효과를 실험 없이 추정해야 한다면?", a: "발행 대상과 비대상의 전후 변화를 비교하는 이중차분(DiD, 평행 추세 확인), 성향점수 매칭, 발행 기준점이 있으면 회귀 불연속을 씁니다. 다음부터는 홀드아웃 그룹을 두자고 제안합니다." }],
   },
   {
     id: 'st-tests', cat: 'stats', level: 2,
@@ -737,8 +737,8 @@ export const QUESTIONS = [
 
       **7. 의사결정과 공유**: 출시/보류/재실험. 실패한 실험도 학습으로 문서화합니다.`,
     keyPoints: ['근거 있는 가설', 'Primary/Secondary/Guardrail 지표', '유저 단위 무작위 배정', '표본 크기 사전 계산 + 7일 단위 기간', 'SRM 체크, 피킹 금지', '효과크기+CI로 의사결정, 문서화'],
-    pitfalls: ['지표를 실험 후에 고름', '유의한 결과가 나오자마자 실험 종료'],
-    followups: ['실험 기간이 너무 길게 계산되면 어떻게 하시겠어요? (분산 감소: CUPED, 지표 변경, MDE 재검토)'],
+    pitfalls: [{ text: "지표를 실험 후에 고름", fix: "Primary, Guardrail 지표와 성공 기준을 실험 시작 전에 문서로 확정하세요. 사후에 고르면 p-hacking입니다." }, { text: "유의한 결과가 나오자마자 실험 종료", fix: "사전에 계산한 표본 크기와 기간(7일 단위)을 끝까지 채우세요. 중간에 결정해야 하면 순차 검정을 쓰세요." }],
+    followups: [{ q: "실험 기간이 너무 길게 계산되면 어떻게 하시겠어요?", a: "실험 전 데이터로 분산을 줄이는 CUPED, 더 민감한 대리 지표(예: 구매 대신 장바구니), 기능에 노출된 유저만 분석(트리거 분석), MDE의 비즈니스적 재검토, 트래픽 배분 확대를 검토합니다." }],
   },
   {
     id: 'ab-sample-size', cat: 'ab', level: 2,
@@ -916,7 +916,7 @@ export const QUESTIONS = [
 
       → **케이스 트레이닝 탭**에 이 문제를 단계별로 풀어보고, 실제 샘플 데이터(events 테이블)로 원인을 찾는 실습이 있습니다.`,
     keyPoints: ['정의·기간·비교기준 명확화 질문', '데이터/로깅 이상 먼저 배제', '지표 분해(신규/기존/복귀)', '세그먼트 분해(플랫폼, 앱버전, 지역, 채널)', '내부 vs 외부 요인', '가설 검증 → 액션까지'],
-    pitfalls: ['바로 "경쟁사 때문일 것"이라고 가설부터 던짐', '데이터 오류 가능성을 고려하지 않음'],
+    pitfalls: [{ text: "바로 \"경쟁사 때문일 것\"이라고 가설부터 던짐", fix: "정의·기간을 확인하는 질문 → 데이터 오류 배제 → 지표·세그먼트 분해 → 가설 순서로 구조를 먼저 보여주세요." }, { text: "데이터 오류 가능성을 고려하지 않음", fix: "로깅·파이프라인 변경 여부를 확인하고 다른 소스(주문 DB, 서버 로그)와 교차 검증하는 단계를 맨 앞에 두세요." }],
     practice: 'sql-16',
   },
   {
@@ -1189,7 +1189,7 @@ export const QUESTIONS = [
 
       **포인트**: '우리'가 아니라 **'내가' 한 행동**을 구체적으로 말하고, 결과는 숫자로, 실패 경험이라면 배운 점을 강조합니다.`,
     keyPoints: ['STAR 구조', '나의 구체적 행동(분석 방법)', '수치화된 결과', '협업/실행까지 연결', '배운 점'],
-    followups: ['그 분석에서 가장 어려웠던 점은?', '다시 한다면 무엇을 다르게 하시겠어요?'],
+    followups: [{ q: "그 분석에서 가장 어려웠던 점은?", a: "기술(데이터 품질, 정의 합의) 하나와 사람(이해관계자 설득) 하나 중 실제 경험을 골라 \"문제 → 내가 한 해결 → 배운 점\"으로 30초 안에 답하세요." }, { q: "다시 한다면 무엇을 다르게 하시겠어요?", a: "\"지표 정의를 더 일찍 합의하겠다\", \"가설을 사전에 문서화하겠다\"처럼 구체적인 개선 1~2개를 말하면 성찰 능력을 보여줄 수 있습니다." }],
   },
   {
     id: 'bh-explain', cat: 'behavior', level: 1,
