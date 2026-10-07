@@ -17,7 +17,13 @@ jobs:
         with:
           node-version: "22"
       - name: Install dependencies
-        run: pip install duckdb "pandas==2.3.3" scipy
+        # PyPI 인덱스 응답이 일시적으로 비는 경우("from versions: none")가 있어 최대 3번 재시도
+        run: |
+          for i in 1 2 3; do
+            pip install --timeout 60 --retries 5 duckdb "pandas==2.3.3" scipy && exit 0
+            echo "pip install 실패 ($i/3), 20초 후 재시도"; sleep 20
+          done
+          exit 1
       - name: Validate content (problems, answers, links)
         run: python tests/validate_content.py
       - name: Validate statistics functions against scipy
