@@ -3,6 +3,7 @@
 //  - 단축키 도움말 (? 키), / 키로 검색창 이동, 맨 위로 버튼
 import { h, store, toast } from './util.js';
 import { TABLES } from './config.js';
+import { highlight, hlLang } from './highlight.js';
 
 const TABLE_RE = new RegExp(`\\b(${TABLES.map((t) => t.name).join('|')})\\b`);
 
@@ -33,6 +34,13 @@ function decoratePre(pre) {
   pre.dataset.enhanced = '1';
   const text = pre.innerText.replace(/\n$/, '');
   const lang = codeLang(pre, text);
+  // 문법 강조 (sql / python, 'sql-syntax' 같은 실행하지 않는 틀 포함)
+  const hl = hlLang(lang);
+  if (hl && !pre.querySelector('span')) {
+    const target = pre.querySelector('code') || pre;
+    target.innerHTML = highlight(target.textContent, hl);
+    pre.classList.add('hl');
+  }
   const bar = h('div', { class: 'code-tools' },
     h('button', { class: 'code-tool', type: 'button', title: '코드 복사', onclick: () => copyText(text) }, '복사'));
   // 샘플 테이블을 쓰는 SQL/pandas 코드는 플레이그라운드에서 바로 실행
