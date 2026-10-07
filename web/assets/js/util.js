@@ -219,7 +219,8 @@ export function normalizeRows(rows, orderMatters) {
     if (typeof v === 'boolean') return v ? 1 : 0;
     if (typeof v === 'number') { const x = Math.round(v * 1e4) / 1e4; return Object.is(x, -0) ? 0 : x; }
     if (v instanceof Date) return v.toISOString().replace('T', ' ').replace(/\.000Z$/, '').replace(/ 00:00:00$/, '');
-    return String(v);
+    // 자정 타임스탬프 문자열 = 날짜 ('2025-01-01 00:00:00' == '2025-01-01')
+    return String(v).replace(/^(\d{4}-\d{2}-\d{2})[ T]00:00:00(?:\.0+)?$/, '$1');
   }));
   const keyed = norm.map((r) => JSON.stringify(r));
   if (!orderMatters) keyed.sort();

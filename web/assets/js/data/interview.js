@@ -44,7 +44,7 @@ export const QUESTIONS = [
       **성능 관점**: 집계와 무관한 조건은 HAVING이 아니라 WHERE에 두는 것이 좋습니다. 집계할 행 수 자체가 줄어들기 때문입니다.`,
     keyPoints: ['WHERE = 집계 전 행 필터, HAVING = 집계 후 그룹 필터', '논리적 실행 순서(FROM→WHERE→GROUP BY→HAVING→SELECT→ORDER BY)', 'WHERE에서 집계함수 사용 불가', '가능한 조건은 WHERE로 (성능)'],
     pitfalls: [{ text: "\"HAVING은 GROUP BY와 같이 쓰는 WHERE\"라고만 답하고 실행 순서를 설명하지 못함", fix: "실행 순서(FROM → WHERE → GROUP BY → HAVING → SELECT)와 함께 \"WHERE는 집계 전 행, HAVING은 집계 후 그룹\"이라고 답하세요." }, { text: "집계와 무관한 조건을 HAVING에 넣는 습관", fix: "`status = 'completed'`처럼 집계와 무관한 조건은 WHERE에 두세요. 집계할 행이 먼저 줄어 더 빠릅니다." }],
-    followups: [{ q: "SELECT에서 정의한 별칭을 WHERE에서 쓸 수 있나요?", a: "표준 SQL에서는 불가합니다. WHERE가 SELECT보다 먼저 실행되기 때문입니다. DuckDB나 Databricks는 일부 허용하지만, 이식성을 생각하면 CTE나 서브쿼리로 감싸는 것이 안전합니다." }, { q: "QUALIFY는 무엇이고 언제 쓰나요?", a: "윈도우 함수 결과로 행을 거르는 절입니다. \"그룹별 최신 1건\"(`QUALIFY ROW_NUMBER() OVER (...) = 1`)처럼 서브쿼리 없이 필터링할 때 씁니다. Databricks와 DuckDB는 지원하고, 오픈소스 Spark와 MySQL은 지원하지 않습니다." }],
+    followups: [{ q: "SELECT에서 정의한 별칭을 WHERE에서 쓸 수 있나요?", a: "표준 SQL에서는 불가합니다. WHERE가 SELECT보다 먼저 실행되기 때문입니다. DuckDB는 WHERE에서도 별칭을 허용하지만, Databricks는 SELECT 목록 안(lateral column alias)과 GROUP BY·HAVING·ORDER BY에서만 허용합니다. 이식성을 생각하면 CTE나 서브쿼리로 감싸세요." }, { q: "QUALIFY는 무엇이고 언제 쓰나요?", a: "윈도우 함수 결과로 행을 거르는 절입니다. \"그룹별 최신 1건\"(`QUALIFY ROW_NUMBER() OVER (...) = 1`)처럼 서브쿼리 없이 필터링할 때 씁니다. Databricks와 DuckDB는 지원하고, 오픈소스 Spark와 MySQL은 지원하지 않습니다." }],
     practice: 'sql-02',
   },
   {
@@ -243,6 +243,8 @@ export const QUESTIONS = [
       ORDER BY 1, 2
       \`\`\`
 
+      (DuckDB 문법입니다. Databricks에서는 \`datediff(MONTH, start, end)\`처럼 단위를 따옴표 없이 씁니다. 두 날짜를 월초로 자른 뒤 비교하므로 결과는 같습니다.)
+
       **3) 함정 체크**
       - **분모는 코호트 전체 인원**이어야 합니다. 활동 테이블과 INNER JOIN한 뒤 분모를 세면 한 번도 활동하지 않은 유저가 빠져 리텐션이 부풀려집니다.
       - **관측 기간이 덜 찬 코호트**(예: 12월 가입자의 3개월차)는 0%가 아니라 '측정 불가'로 비워야 합니다.
@@ -352,7 +354,7 @@ export const QUESTIONS = [
       **2) 읽는 데이터 줄이기 (가장 효과 큼)**
       - \`SELECT *\` 대신 필요한 컬럼만 → 컬럼 기반 포맷(Parquet/Delta)에서 효과가 큽니다.
       - **파티션 컬럼으로 필터**해서 파티션 프루닝이 일어나게 합니다 (예: \`event_date\`). 필터 컬럼에 함수를 씌우면(\`YEAR(event_date) = 2025\`) 프루닝이 안 될 수 있습니다.
-      - Delta는 **Z-ORDER / Liquid Clustering**으로 자주 필터하는 컬럼의 데이터 스키핑을 높입니다.
+      - Delta 신규 테이블은 파티셔닝·Z-ORDER 대신 **Liquid Clustering**(\`CLUSTER BY\`)과 Predictive Optimization을 권장합니다 (기존 테이블은 Z-ORDER). 자주 필터하는 컬럼의 데이터 스키핑을 높여줍니다.
 
       **3) 조인 최적화**
       - 조인 전에 필터와 집계를 먼저 해서 조인 입력을 줄입니다.
@@ -429,7 +431,7 @@ export const QUESTIONS = [
 
       그 밖에 \`apply\`는 그룹별로 임의 함수를 실행해 가장 유연하지만 느립니다. \`filter\`는 그룹 단위로 행을 남기거나 버립니다 (SQL의 HAVING과 비슷). 순위는 \`groupby().rank()\`, 누적합은 \`groupby().cumsum()\`, 이전 값은 \`groupby().shift()\`를 씁니다.`,
     keyPoints: ['agg = 그룹당 1행 (GROUP BY)', 'transform = 원래 행 수 유지 (윈도우 함수)', 'named aggregation 문법', 'apply는 유연하지만 느림, filter는 HAVING'],
-    followups: [{ q: "그룹별 상위 3개 행은 어떻게 뽑나요?", a: "`df.sort_values('v', ascending=False).groupby('g').head(3)` 또는 `df.groupby('g', group_keys=False).apply(lambda x: x.nlargest(3, 'v'))`입니다. 동점까지 포함하려면 `rank(method='dense') <= 3`을 씁니다." }],
+    followups: [{ q: "그룹별 상위 3개 행은 어떻게 뽑나요?", a: "`df.sort_values('v', ascending=False).groupby('g').head(3)` 입니다. 동점까지 포함하려면 `df[df.groupby('g')['v'].rank(method='dense', ascending=False) <= 3]`를 씁니다. (`groupby().apply`는 pandas 3.0에서 그룹 컬럼이 빠지므로 피합니다.)" }],
     practice: 'pd-04',
   },
   {
@@ -460,7 +462,7 @@ export const QUESTIONS = [
       **1) 먼저 파악합니다**: \`df.isna().sum()\`, \`df.isna().mean()\`으로 컬럼별 결측 비율을 보고, **왜 비어 있는지** 확인합니다.
       - 구조적 결측: 쿠폰을 안 썼으니 coupon_code가 비어 있음 → 결측이 아니라 '없음'이라는 정보 (\`fillna('NONE')\`)
       - 수집 오류: 특정 앱 버전에서 로깅 누락 → 해당 구간을 분석에서 제외하거나 원인 리포트
-      - 무작위 결측(MCAR) vs 다른 변수와 관련된 결측(MAR, MNAR) → 단순 삭제 시 편향 발생 여부 판단
+      - 완전 무작위 결측(MCAR) vs 관측된 다른 변수로 설명되는 결측(MAR) vs 결측값 자체와 관련된 결측(MNAR, 예: 고소득자가 소득을 안 적음) → 단순 삭제 시 편향 발생 여부 판단
 
       **2) 처리 방법**
       - 삭제: \`dropna(subset=[...])\` — 결측 비율이 낮고 무작위일 때
@@ -524,7 +526,7 @@ export const QUESTIONS = [
       - 부분 데이터를 따로 가공하려면 명시적으로 복사: \`sub = df[df.a > 0].copy()\`
       - 메서드 체이닝 스타일: \`df.assign(b=lambda d: np.where(d.a > 0, 1, d.b))\`
 
-      참고로 **pandas 3.0부터는 Copy-on-Write가 기본**이 되어, 체인 할당은 원본을 절대 바꾸지 않는 방향으로 동작이 명확해졌습니다. 그래서 \`loc\` 한 번으로 할당하는 습관이 더욱 중요합니다.`,
+      참고로 **pandas 3.0부터 Copy-on-Write가 기본**이 되어 SettingWithCopyWarning은 사라졌고, 체인 할당은 원본을 절대 바꾸지 않으며 \`ChainedAssignmentError\` 경고가 납니다. 그래서 \`loc\` 한 번으로 할당하는 습관이 더욱 중요합니다.`,
     keyPoints: ['체인 인덱싱 할당 → view/copy 모호', 'df.loc[mask, col] = v', '.copy() 명시', 'pandas 3.0 Copy-on-Write 기본'],
   },
 
@@ -643,7 +645,7 @@ export const QUESTIONS = [
       | 상황 | 검정 |
       |---|---|
       | 두 그룹의 **평균** 비교 (연속형: 객단가, 체류시간) | **Welch t-검정** (분산이 달라도 됨, 실무 기본값) |
-      | 두 그룹의 **비율** 비교 (전환율) | **두 비율 z-검정** 또는 카이제곱 검정 (2×2에서는 동일) |
+      | 두 그룹의 **비율** 비교 (전환율) | **두 비율 z-검정** 또는 카이제곱 검정 (2×2에서 연속성 보정이 없으면 χ² = z²로 동일) |
       | 범주형 변수 간 **독립성** (플랫폼 × 구매여부), 배정 비율 검증(SRM) | **카이제곱 검정** (기대빈도가 작으면 Fisher 정확검정) |
       | 정규성 가정이 의심되고 이상치가 심하며 표본이 작음 | **Mann-Whitney U** (순위 기반, 비모수) |
       | 같은 대상의 전/후 비교 | **대응표본 t-검정** / Wilcoxon 부호순위 |
@@ -993,7 +995,7 @@ export const QUESTIONS = [
       - **LTV/CAC > 3**이면 건강하다고 보는 경험칙이 있고, **CAC 회수 기간(Payback period)**도 함께 봅니다.
 
       **채널 평가 시 주의점**
-      - **첫 구매가 아니라 코호트 LTV로 비교합니다.** 샘플 데이터에서도 paid_search 유입 유저는 초기 전환은 높지만 28일 리텐션이 약 32%로 organic(약 73%)보다 크게 낮습니다 → 단기 ROAS로는 좋아 보여도 LTV는 낮을 수 있습니다.
+      - **첫 구매가 아니라 코호트 LTV로 비교합니다.** 샘플 데이터에서도 paid_search 유입 유저는 가입 7일 내 구매율은 organic과 비슷하지만(약 15% vs 14%) 28일 리텐션이 약 37%로 organic(약 84%)의 절반에도 못 미칩니다 → 단기 ROAS로는 좋아 보여도 LTV는 낮을 수 있습니다.
       - **기여(Attribution) 모델**: 라스트 클릭은 검색 광고를 과대평가합니다. 멀티터치, MMM(마케팅 믹스 모델링)을 검토합니다.
       - **증분성(Incrementality)**: 광고가 없어도 왔을 유저인지 확인합니다 → 지역 기반 홀드아웃이나 Geo 실험으로 측정합니다.`,
     keyPoints: ['CAC, LTV 정의와 계산', 'LTV/CAC, 회수기간', '채널별 코호트 LTV 비교 (단기 전환 함정)', '기여모델 한계, 증분성 실험'],
@@ -1086,7 +1088,7 @@ export const QUESTIONS = [
       - **Gold (Business)**: 비즈니스 목적별 집계와 마트 (일별 KPI, 코호트 리텐션, 대시보드용 테이블)
 
       **분석가의 역할**
-      - 주로 **Silver를 조회하고 Gold를 만드는** 역할입니다. 최근에는 dbt나 Databricks Workflows/DLT로 Gold 테이블을 직접 만들고 운영하는 분석가(Analytics Engineer 성향)를 선호합니다.
+      - 주로 **Silver를 조회하고 Gold를 만드는** 역할입니다. 최근에는 dbt나 Lakeflow Jobs(구 Workflows)·Lakeflow Spark Declarative Pipelines(구 DLT)로 Gold 테이블을 직접 만들고 운영하는 분석가(Analytics Engineer 성향)를 선호합니다.
       - 같은 지표를 매번 다르게 계산하지 않도록 Gold 계층에 **지표 정의를 코드로 고정**하고 문서화합니다.
       - Unity Catalog의 \`catalog.schema.table\` 3단계 네임스페이스와 권한(GRANT), 리니지 기능으로 데이터의 출처와 영향 범위를 추적합니다.`,
     keyPoints: ['Bronze = 원본, Silver = 정제 엔티티, Gold = 비즈니스 집계', '분석가는 Silver 조회 + Gold 생성/운영', '지표 정의의 코드화', 'Unity Catalog 3단계 네임스페이스, 리니지'],
@@ -1119,7 +1121,7 @@ export const QUESTIONS = [
       - **Precision(정밀도)** = TP / (TP + FP): 양성이라고 예측한 것 중 실제 양성 비율 → **오탐 비용이 클 때** (정상 거래를 사기로 차단)
       - **Recall(재현율)** = TP / (TP + FN): 실제 양성 중 잡아낸 비율 → **놓치는 비용이 클 때** (사기, 질병)
       - **F1**: 정밀도와 재현율의 조화평균
-      - **ROC-AUC**: 임계값과 무관하게 양성을 음성보다 높게 순위 매길 확률. 불균형이 심하면 **PR-AUC**가 더 정보력이 있습니다.
+      - **ROC-AUC**: 무작위로 고른 양성 샘플의 점수가 무작위로 고른 음성 샘플보다 높을 확률(임계값과 무관). 불균형이 심하면 **PR-AUC**가 더 정보력이 있습니다.
 
       **실무 포인트**: 임계값(threshold)은 비즈니스 비용으로 정합니다. 예: 이탈 방지 쿠폰 비용 5천 원, 이탈 고객 LTV 10만 원 → 기대 이익이 최대가 되는 임계값을 선택하고, **상위 N% 타깃 시 Lift**로 커뮤니케이션하면 현업이 이해하기 쉽습니다.`,
     keyPoints: ['불균형에서 Accuracy 함정', 'Precision = 오탐 비용, Recall = 미탐 비용', 'F1, ROC-AUC vs PR-AUC', '임계값은 비즈니스 비용 기준, Lift로 소통'],

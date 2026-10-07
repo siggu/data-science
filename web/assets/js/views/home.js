@@ -38,7 +38,7 @@ export default {
       h('div', { class: 'hero' },
         h('div', { class: 'card' },
           h('h1', null, '데이터 분석가 면접, 실전처럼 준비하기'),
-          h('p', { class: 'muted' }, '최신 면접 질문과 모범 답변을 익히고, 브라우저에서 바로 SQL·pandas를 실행해 볼 수 있습니다. 설치 없이 DuckDB(SQL)와 Pyodide(pandas)가 브라우저에서 돌아가고, 같은 샘플 데이터로 로컬 Spark + Delta Lake(Databricks와 같은 문법) 환경도 쓸 수 있습니다.'),
+          h('p', { class: 'muted' }, '최신 면접 질문과 모범 답변을 익히고, 브라우저에서 바로 SQL·pandas를 실행해 볼 수 있습니다. 설치 없이 DuckDB(SQL)와 Pyodide(pandas)가 브라우저에서 돌아가고, 같은 샘플 데이터로 로컬 Spark + Delta Lake(Databricks와 거의 같은 Spark SQL·Delta 문법) 환경도 쓸 수 있습니다.'),
           h('div', { class: 'row', style: { marginTop: '14px' } },
             h('a', { class: 'btn primary', href: '#/interview' }, '면접 Q&A 보기'),
             h('a', { class: 'btn', href: '#/playground' }, 'SQL·pandas 연습하기'),

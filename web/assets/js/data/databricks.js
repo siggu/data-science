@@ -24,7 +24,7 @@ export const CONCEPTS = [
   },
   {
     title: '메달리온 아키텍처',
-    body: `**Bronze**(원본) → **Silver**(정제·중복 제거·조인된 엔티티) → **Gold**(비즈니스 집계·마트). 분석가는 주로 Silver를 읽고 Gold를 만듭니다. Lakeflow Declarative Pipelines(구 DLT)와 Workflows(Jobs)로 파이프라인을 운영합니다.`,
+    body: `**Bronze**(원본) → **Silver**(정제·중복 제거·조인된 엔티티) → **Gold**(비즈니스 집계·마트). 분석가는 주로 Silver를 읽고 Gold를 만듭니다. Lakeflow Spark Declarative Pipelines(구 DLT)와 Lakeflow Jobs(구 Workflows)로 파이프라인을 운영합니다.`,
   },
   {
     title: 'SQL Warehouse',
@@ -52,7 +52,7 @@ export const SYNTAX = [
   { task: '순위', dbsql: 'ROW_NUMBER() OVER (PARTITION BY g ORDER BY v DESC)', duck: '동일', pandas: "df.groupby('g')['v'].rank(method='first', ascending=False)", pyspark: "F.row_number().over(Window.partitionBy('g').orderBy(F.desc('v')))" },
   { task: '윈도우 필터', dbsql: 'QUALIFY ROW_NUMBER() OVER (...) = 1', duck: '동일', pandas: "df.sort_values(...).drop_duplicates('g')", pyspark: "withColumn('rn', ...).filter('rn = 1')" },
   { task: '이전 행', dbsql: 'LAG(v) OVER (PARTITION BY g ORDER BY t)', duck: '동일', pandas: "df.groupby('g')['v'].shift(1)", pyspark: "F.lag('v').over(w)" },
-  { task: '누적합', dbsql: 'SUM(v) OVER (ORDER BY t ROWS UNBOUNDED PRECEDING)', duck: '동일', pandas: "df['v'].cumsum()", pyspark: "F.sum('v').over(w.rowsBetween(Window.unboundedPreceding, 0))" },
+  { task: '누적합', dbsql: 'SUM(v) OVER (ORDER BY t ROWS UNBOUNDED PRECEDING)', duck: '동일', pandas: "df.sort_values('t')['v'].cumsum()", pyspark: "F.sum('v').over(w.rowsBetween(Window.unboundedPreceding, 0))" },
   { task: '날짜 자르기', dbsql: "date_trunc('MONTH', ts)", duck: "date_trunc('month', ts)", pandas: "df.ts.dt.to_period('M').dt.to_timestamp()", pyspark: "F.date_trunc('month', 'ts')" },
   { task: '날짜 차이(일)', dbsql: 'datediff(end, start)', duck: "date_diff('day', start, end) — 이 사이트는 datediff(end, start) 호환 매크로 제공", pandas: '(df.end - df.start).dt.days', pyspark: "F.datediff('end', 'start')" },
   { task: '날짜 더하기', dbsql: 'date_add(d, 7) / d + INTERVAL 7 DAYS', duck: 'date_add(d, 7) / d + INTERVAL 7 DAY', pandas: "df.d + pd.Timedelta(days=7)", pyspark: "F.date_add('d', 7)" },
@@ -66,7 +66,7 @@ export const SYNTAX = [
   { task: '0 나누기 방지', dbsql: 'try_divide(a, b)', duck: 'a / NULLIF(b, 0) — try_divide 호환', pandas: "df.a / df.b.replace(0, np.nan)", pyspark: "F.try_divide('a', 'b')" },
   { task: '파일 바로 읽기', dbsql: "SELECT * FROM read_files('/Volumes/.../x.csv')", duck: "SELECT * FROM read_csv('x.csv')", pandas: "pd.read_csv('x.csv')", pyspark: "spark.read.csv(path, header=True)" },
   { task: '테이블 생성', dbsql: 'CREATE OR REPLACE TABLE t AS SELECT ...', duck: '동일', pandas: "df.to_parquet(...)", pyspark: "df.write.mode('overwrite').saveAsTable('t')" },
-  { task: 'Upsert', dbsql: 'MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET * WHEN NOT MATCHED THEN INSERT *', duck: 'INSERT OR REPLACE / ON CONFLICT (MERGE는 최신 버전부터)', pandas: "pd.concat([...]).drop_duplicates('id', keep='last')", pyspark: 'DeltaTable.forName(spark, "t").merge(...)' },
+  { task: 'Upsert', dbsql: 'MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN UPDATE SET * WHEN NOT MATCHED THEN INSERT *', duck: 'MERGE INTO (DuckDB 1.4+, 이 사이트에서 실행 가능) / INSERT … ON CONFLICT (PK 필요)', pandas: "pd.concat([...]).drop_duplicates('id', keep='last')", pyspark: 'DeltaTable.forName(spark, "t").merge(...)' },
 ];
 
 export const DBSQL_FEATURES = `
@@ -85,7 +85,7 @@ SELECT * FROM orders WHERE order_date >= :start_date AND status = :status;
 SELECT * FROM orders
 QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY order_ts DESC) = 1;
 
--- 4) GROUP BY ALL / 컬럼 별칭 재사용
+-- 4) GROUP BY ALL
 SELECT date_trunc('MONTH', order_ts) AS month, channel, SUM(amount) AS revenue
 FROM orders GROUP BY ALL;
 
@@ -107,7 +107,7 @@ COPY INTO raw.orders FROM '/Volumes/prod/raw/landing/orders/' FILEFORMAT = CSV F
 
 -- 8) 뷰 / Materialized View / 권한
 CREATE OR REPLACE VIEW gold.daily_kpi AS SELECT ...;
-CREATE MATERIALIZED VIEW gold.daily_kpi_mv AS SELECT ...;   -- 자동 증분 갱신
+CREATE MATERIALIZED VIEW gold.daily_kpi_mv AS SELECT ...;   -- 결과 저장, REFRESH/스케줄 시 (가능하면) 증분 갱신
 GRANT SELECT ON TABLE gold.daily_kpi TO \`analysts\`;
 
 -- 9) 성능
@@ -190,7 +190,7 @@ export const QUIZ = [
     explain: 'VACUUM은 더 이상 참조되지 않는 오래된 데이터 파일을 삭제합니다. 기본 보존 기간은 7일입니다.',
   },
   {
-    q: '시작 시간이 거의 없고 사용량에 따라 자동 확장되어, 일반적으로 권장되는 SQL Warehouse 유형은?',
+    q: '거의 즉시 시작되고 사용량에 따라 자동 확장되어, 일반적으로 권장되는 SQL Warehouse 유형은?',
     options: ['Classic', 'Pro', 'Serverless', 'All-purpose cluster'],
     answer: 2,
     explain: 'Serverless SQL Warehouse는 Databricks가 컴퓨트를 관리하며 빠르게 시작되고 자동으로 확장됩니다.',
@@ -283,7 +283,7 @@ export const QUIZ = [
     q: 'Databricks SQL에서 DuckDB의 strftime(ts, \'%Y-%m\')과 같은 결과를 내는 함수는?',
     options: ["to_char(ts, 'YYYY-MM')", "date_format(ts, 'yyyy-MM')", "format_date('%Y-%m', ts)", "strftime(ts, 'yyyy-MM')"],
     answer: 1,
-    explain: "Databricks(Spark SQL)는 Java 형식 패턴(yyyy, MM, dd, HH, mm)을 사용하는 date_format을 씁니다. 대소문자에 주의하세요: MM=월, mm=분.",
+    explain: "Databricks(Spark SQL)는 Java 형식 패턴(yyyy, MM, dd, HH, mm)을 사용하는 date_format을 씁니다. 대소문자에 주의하세요: MM=월, mm=분. 참고: DBR 14.1+에서는 to_char(ts, 'yyyy-MM')도 같은 결과지만, 'YYYY'는 주 기준 연도(week-based) 패턴이라 Spark 3+에서 오류입니다.",
   },
   {
     q: 'datediff(\'2025-01-10\', \'2025-01-01\')의 Databricks SQL 결과는?',
@@ -293,7 +293,7 @@ export const QUIZ = [
   },
   {
     q: 'Materialized View에 대한 설명으로 옳은 것은?',
-    options: ['쿼리할 때마다 원본에서 다시 계산된다', '결과를 미리 계산해 저장하고 원본 변경 시 (증분) 갱신된다', '권한 설정이 불가능하다', 'Delta 테이블을 대상으로 만들 수 없다'],
+    options: ['쿼리할 때마다 원본에서 다시 계산된다', '결과를 미리 계산해 저장하고, REFRESH(수동·스케줄) 시 가능하면 증분으로 갱신된다', '권한 설정이 불가능하다', 'Delta 테이블을 대상으로 만들 수 없다'],
     answer: 1,
     explain: 'Materialized View는 결과를 저장해 조회가 빠르며, 갱신(REFRESH, 스케줄)으로 최신화합니다. 일반 View는 조회할 때마다 계산됩니다.',
   },

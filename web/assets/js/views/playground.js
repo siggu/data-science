@@ -260,14 +260,16 @@ export default {
     return h('details', { class: 'card flat' },
       h('summary', { style: { cursor: 'pointer', fontWeight: 600 } }, 'Databricks SQL과의 차이'),
       h('div', { class: 'md small', style: { marginTop: '10px' }, html: md(`
-        **그대로 쓸 수 있는 것**: \`QUALIFY\`, \`GROUP BY ALL\`, \`PIVOT\`, 윈도우 함수, \`date_trunc\`, \`date_add\`, \`COUNT_IF\`, \`FILTER (WHERE ...)\`, \`median\`, \`concat_ws\`, \`split\`, \`regexp_extract\`, \`array_contains\`
+        **그대로 쓸 수 있는 것**: \`QUALIFY\`, \`GROUP BY ALL\`, \`PIVOT\`, 윈도우 함수, \`date_trunc\`, \`date_add\`, \`COUNT_IF\`, \`FILTER (WHERE ...)\`, \`median\`, \`concat_ws\`, \`array_contains\`, \`MERGE INTO\`
 
         **호환 매크로로 지원**: ${fns.map((f) => '`' + f + '`').join(', ')}
 
         **다른 점**
         - 테이블 이름은 3단계(\`catalog.schema.table\`)가 아니라 \`orders\`처럼 씁니다.
         - \`date_format\`은 자주 쓰는 패턴(yyyy-MM-dd, yyyy-MM, HH 등)만 지원 → 그 외는 \`strftime(ts, '%Y-%m')\`
-        - \`LATERAL VIEW explode\` 대신 \`unnest\`, \`MERGE INTO\`·Time Travel·\`OPTIMIZE\` 같은 Delta 기능은 **local-spark 환경**에서 실습하세요.
+        - \`LATERAL VIEW explode\` 대신 \`unnest\`. Time Travel·\`OPTIMIZE\` 같은 Delta 기능은 **local-spark 환경**에서 실습하세요.
+        - \`regexp_extract\`: Databricks 기본 그룹은 1, DuckDB는 0(전체 매치) → 그룹 번호를 항상 명시하세요.
+        - \`split\`: Databricks는 정규식, DuckDB는 문자열 구분자로 자릅니다 (정규식은 \`regexp_split_to_array\`).
         - 정수 나눗셈: DuckDB와 Databricks 모두 \`/\`는 실수 나눗셈입니다.
       `) }));
   },
