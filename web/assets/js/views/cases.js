@@ -42,7 +42,7 @@ export default {
     const done = store.has('case:done', c.id);
 
     const steps = c.steps.map((s, i) => {
-      const ta = h('textarea', { rows: 4, placeholder: s.guide, 'aria-label': `${i + 1}단계 내 답변` });
+      const ta = h('textarea', { rows: 4, placeholder: '내 답변을 적어보세요 (자동 저장)', 'aria-label': `${i + 1}단계 내 답변` });
       ta.value = notes[i] || '';
       ta.addEventListener('input', () => { notes[i] = ta.value; store.set(notesKey, notes); });
       const model = h('div', { class: 'model-answer md', html: md(s.model), hidden: true });

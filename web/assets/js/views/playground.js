@@ -51,7 +51,7 @@ export default {
       h('div', { class: 'page-head' },
         h('h1', null, 'SQL · pandas 플레이그라운드'),
         h('p', null, '브라우저에서 실행되는 연습 환경입니다. 서버나 설치가 필요 없고, 데이터는 내 컴퓨터 밖으로 나가지 않습니다. SQL은 Databricks SQL과 문법이 가장 비슷한 DuckDB로 실행되며, 자주 쓰는 Spark SQL 함수(datediff, date_format, nvl, collect_list 등)는 호환 매크로로 그대로 쓸 수 있습니다. ', h('kbd', null, 'Ctrl'), ' + ', h('kbd', null, 'Enter'), '로 실행합니다 (선택한 부분만 실행 가능). 입력하면 테이블·컬럼·함수 자동 완성 목록이 뜨고 ', h('kbd', null, 'Tab'), '으로 완성합니다.')),
-      h('div', { class: 'split' },
+      h('div', { class: 'split main-first' },
         h('aside', { class: 'sticky-side stack' },
           h('div', { class: 'card flat' }, h('h3', null, '샘플 데이터베이스'), h('p', { class: 'small muted' }, '이커머스 서비스의 2025년 1년치 가상 데이터입니다. 컬럼을 클릭하면 에디터에 삽입됩니다.'), this.schemaEl),
           this.uploadCard(),
@@ -131,7 +131,7 @@ export default {
         html: md('Jupyter처럼 **마지막 줄의 값**이 출력되고, 변수는 실행 간에 유지됩니다. `display(df)`로 여러 표를 출력할 수 있습니다. `df = await sql("SELECT ...")`로 SQL 결과를 받고, `await to_sql(df, "name")`으로 DataFrame을 SQL 테이블로 보낼 수 있습니다.'),
       }),
       holder, h('div', { style: { marginTop: '12px' } }, this.pyOut));
-    onEngineState((s) => { if (this.pyStatus) this.pyStatus.textContent = s.pyodide === 'idle' ? '' : s.pyodideMsg; });
+    onEngineState((s) => { if (this.pyStatus) this.pyStatus.textContent = s.pyodide === 'idle' ? '' : s.pyodide === 'error' ? 'Python 엔진 로드 실패 — 다시 실행하면 재시도' : s.pyodideMsg; });
   },
 
   async ensurePython() {
@@ -227,10 +227,12 @@ export default {
 
   uploadCard() {
     const nameIn = h('input', { type: 'text', placeholder: '테이블 이름 (예: my_data)', 'aria-label': '업로드 테이블 이름' });
-    const fileIn = h('input', { type: 'file', accept: '.csv,text/csv', 'aria-label': 'CSV 파일 선택', style: { fontSize: '.82rem', maxWidth: '100%' } });
+    const fileIn = h('input', { type: 'file', accept: '.csv,text/csv', class: 'visually-hidden', 'aria-label': 'CSV 파일 선택' });
+    const fileName = h('span', { class: 'small muted', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } }, '선택한 파일 없음');
     const msg = h('div', { class: 'small muted' });
     fileIn.addEventListener('change', () => {
       const f = fileIn.files[0];
+      fileName.textContent = f ? f.name : '선택한 파일 없음';
       if (f && !nameIn.value) nameIn.value = f.name.replace(/\.csv$/i, '').replace(/[^A-Za-z0-9_]/g, '_').replace(/^(\d)/, 't_$1').toLowerCase();
     });
     const go = async () => {
@@ -252,13 +254,14 @@ export default {
     return h('div', { class: 'card flat stack' },
       h('h3', null, '내 CSV 올리기'),
       h('p', { class: 'small muted', style: { margin: 0 } }, '회사 데이터 샘플이나 Kaggle 데이터를 올려 SQL과 pandas로 바로 분석할 수 있습니다. 파일은 브라우저 메모리에만 있습니다.'),
-      fileIn, nameIn, h('button', { class: 'btn', type: 'button', onclick: go }, '테이블로 등록'), msg);
+      h('div', { class: 'row', style: { flexWrap: 'nowrap', minWidth: 0 } }, h('label', { class: 'btn sm', style: { flex: 'none', cursor: 'pointer' } }, fileIn, 'CSV 파일 선택'), fileName),
+      nameIn, h('button', { class: 'btn', type: 'button', onclick: go }, '테이블로 등록'), msg);
   },
 
   dialectCard() {
     const fns = COMPAT_MACROS.map((m) => m.match(/MACRO (\w+)/)[1]);
-    return h('details', { class: 'card flat' },
-      h('summary', { style: { cursor: 'pointer', fontWeight: 600 } }, 'Databricks SQL과의 차이'),
+    return h('details', { class: 'card flat disclosure' },
+      h('summary', null, 'Databricks SQL과의 차이'),
       h('div', { class: 'md small', style: { marginTop: '10px' }, html: md(`
         **그대로 쓸 수 있는 것**: \`QUALIFY\`, \`GROUP BY ALL\`, \`PIVOT\`, 윈도우 함수, \`date_trunc\`, \`date_add\`, \`COUNT_IF\`, \`FILTER (WHERE ...)\`, \`median\`, \`concat_ws\`, \`array_contains\`, \`MERGE INTO\`
 

@@ -31,13 +31,21 @@ function niceTicks(min, max, n = 4) {
   return ticks;
 }
 
-function frame({ width, height, m, xs, ys, xTicks, yTicks, xFmt = String, yFmt = String, xLabel, yLabel }) {
+// x가 1..n 정수 인덱스일 때: 1과 step의 배수만 표시 (2.5 같은 소수 간격으로 눈금이 사라지지 않게)
+function intTicks(n, k) {
+  const step = [1, 2, 5, 10, 20, 50, 100].find((st) => n / st <= k) || Math.ceil(n / k);
+  const t = [1];
+  for (let v = step; v <= n; v += step) if (v > 1) t.push(v);
+  return t;
+}
+
+function frame({ width, height, m, xs, ys, xTicks, yTicks, xFmt = String, yFmt = String, xLabel, yLabel, hideY0 = false }) {
   const svg = s('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart', role: 'img' });
   const g = s('g', { class: 'grid' });
   for (const t of yTicks) g.append(s('line', { x1: m.l, x2: width - m.r, y1: ys(t), y2: ys(t) }));
   svg.append(g);
   const ax = s('g', { class: 'axis' });
-  for (const t of yTicks) ax.append(s('text', { x: m.l - 6, y: ys(t) + 4, 'text-anchor': 'end' }, yFmt(t)));
+  for (const t of yTicks) if (!(hideY0 && t === 0)) ax.append(s('text', { x: m.l - 6, y: ys(t) + 4, 'text-anchor': 'end' }, yFmt(t)));
   for (const t of xTicks) ax.append(s('text', { x: xs(t), y: height - m.b + 16, 'text-anchor': 'middle' }, xFmt(t)));
   ax.append(s('line', { x1: m.l, x2: width - m.r, y1: height - m.b, y2: height - m.b }));
   if (xLabel) ax.append(s('text', { x: (m.l + width - m.r) / 2, y: height - 4, 'text-anchor': 'middle' }, xLabel));
@@ -55,14 +63,14 @@ export function lineChart({ series, yMin = 0, yMax = 1, hline, xLabel, yLabel, y
   const n = Math.max(...series.map((se) => se.values.length));
   const xs = (i) => m.l + ((i - 1) / Math.max(1, n - 1)) * (width - m.l - m.r);
   const ys = (v) => height - m.b - ((Math.min(Math.max(v, yMin), yMax) - yMin) / (yMax - yMin)) * (height - m.t - m.b);
-  const svg = frame({ width, height, m, xs, ys, xTicks: niceTicks(1, n, 6).filter((t) => t >= 1 && Number.isInteger(t)), yTicks: niceTicks(yMin, yMax, 4), yFmt, xLabel, yLabel });
+  const svg = frame({ width, height, m, xs, ys, xTicks: intTicks(n, Math.max(3, Math.floor(width / 70))), yTicks: niceTicks(yMin, yMax, 4), yFmt, xLabel, yLabel });
   for (const se of series) {
     const d = se.values.map((v, i) => `${i ? 'L' : 'M'}${xs(i + 1).toFixed(1)},${ys(v).toFixed(1)}`).join('');
     svg.append(s('path', { d, fill: 'none', stroke: se.color, 'stroke-width': se.width || 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: se.opacity ?? 1 }));
   }
   if (hline) {
     svg.append(s('line', { x1: m.l, x2: width - m.r, y1: ys(hline.y), y2: ys(hline.y), stroke: 'var(--text-2)', 'stroke-dasharray': '4 4', 'stroke-width': 1.5 }));
-    svg.append(s('text', { x: width - m.r, y: ys(hline.y) - 6, 'text-anchor': 'end' }, hline.label));
+    svg.append(s('text', { x: width - m.r, y: ys(hline.y) - 6, 'text-anchor': 'end', class: 'halo' }, hline.label));
   }
   // 크로스헤어 + 툴팁
   const cross = s('line', { y1: m.t, y2: height - m.b, stroke: 'var(--text-3)', 'stroke-width': 1, visibility: 'hidden' });
@@ -91,7 +99,7 @@ export function histogram({ layers, xFmt = (v) => v, xLabel, yLabel, width = 860
   const yMax = Math.max(1, ...all.map((b) => b.count)) * 1.1;
   const xs = (v) => m.l + ((v - x0) / (x1 - x0)) * (width - m.l - m.r);
   const ys = (v) => height - m.b - (v / yMax) * (height - m.t - m.b);
-  const svg = frame({ width, height, m, xs, ys, xTicks: niceTicks(x0, x1, 5), yTicks: niceTicks(0, yMax, 4), xFmt, xLabel, yLabel });
+  const svg = frame({ width, height, m, xs, ys, xTicks: niceTicks(x0, x1, Math.max(2, Math.min(5, Math.floor(width / 90)))), yTicks: niceTicks(0, yMax, 4), xFmt, xLabel, yLabel, hideY0: true });
   layers.forEach((l, li) => {
     for (const b of l.bins) {
       const w = Math.max(1, xs(b.x1) - xs(b.x0) - 2);
@@ -102,10 +110,28 @@ export function histogram({ layers, xFmt = (v) => v, xLabel, yLabel, width = 860
     }
     if (li === 0 && vline) {
       svg.append(s('line', { x1: xs(vline.x), x2: xs(vline.x), y1: m.t, y2: height - m.b, stroke: 'var(--text-2)', 'stroke-dasharray': '4 4', 'stroke-width': 1.5 }));
-      svg.append(s('text', { x: xs(vline.x) + 4, y: m.t + 10 }, vline.label));
+      svg.append(s('text', { x: xs(vline.x) + 4, y: m.t + 10, class: 'halo' }, vline.label));
     }
   });
   return svg;
+}
+
+/**
+ * 컨테이너 너비에 맞춰 차트를 그립니다. viewBox 너비 = 실제 픽셀 너비라서 글자가 항상 11px로 보입니다.
+ * make(width, height) → svg. height는 maxHeight 이하에서 너비에 비례해 줄어듭니다.
+ */
+export function fitChart(make, { maxHeight = 300, minHeight = 200 } = {}) {
+  const box = document.createElement('div');
+  box.className = 'chart-box';
+  let last = 0;
+  const draw = () => {
+    const w = Math.round(box.clientWidth);
+    if (!w || Math.abs(w - last) < 8) return;
+    last = w;
+    box.replaceChildren(make(w, Math.round(Math.max(minHeight, Math.min(maxHeight, w * 0.6)))));
+  };
+  new ResizeObserver(draw).observe(box);
+  return box;
 }
 
 export function bins(values, lo, hi, n) {

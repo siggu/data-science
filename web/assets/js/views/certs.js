@@ -122,7 +122,9 @@ export default {
               const past = dday(s.exam) < 0;
               return h('tr', { style: past ? { color: 'var(--text-3)' } : (s === next ? { fontWeight: 600 } : null) },
                 h('td', null, s.round, s === next ? h('span', { class: 'badge accent', style: { marginLeft: '6px' } }, '다음 시험') : null),
-                h('td', null, s.apply), h('td', null, s.exam + (past ? ' (종료)' : '')), h('td', null, s.result));
+                h('td', null, s.apply.split(' ~ ').map((x, i) => [i ? ' ~ ' : '', h('span', { class: 'nowrap' }, x)])),
+                h('td', null, h('span', { class: 'nowrap' }, s.exam), past ? [' ', h('span', { class: 'badge' }, '종료')] : null),
+                h('td', { class: 'nowrap' }, s.result));
             })))),
           h('p', { class: 'small muted', style: { marginTop: '8px', marginBottom: 0 } }, '일정은 변경될 수 있습니다. 접수 전 ', h('a', { href: 'https://www.dataq.or.kr', target: '_blank', rel: 'noopener' }, '데이터자격검정(dataq.or.kr)'), '에서 꼭 확인하세요.'),
           h('div', { class: 'row', style: { marginTop: '14px' } },
@@ -256,9 +258,9 @@ export default {
           h('thead', null, h('tr', null, h('th', null, '일시'), h('th', null, '점수'), h('th', null, '과목별'), h('th', null, '결과'))),
           h('tbody', null, history.slice(0, 10).map((r) => h('tr', null,
             h('td', null, new Date(r.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })),
-            h('td', null, `${r.score}점`),
-            h('td', null, r.subjects.map((s) => `${s.pct}%`).join(' / ')),
-            h('td', null, h('span', { class: `badge ${r.passed ? 'ok' : 'lv-3'}` }, r.passed ? '합격권' : (r.failReason || '불합격권')))))))) : h('div', { class: 'empty' }, '아직 응시 기록이 없습니다.')));
+            h('td', { class: 'nowrap' }, `${r.score}점`),
+            h('td', null, r.subjects.map((s, i) => [i ? ' / ' : '', h('span', { class: 'nowrap' }, `${s.pct}%`)])),
+            h('td', null, h('span', { class: `badge ${r.passed ? 'ok' : 'lv-3'}`, title: r.failReason || '' }, r.passed ? '합격권' : (r.failReason?.startsWith('과락') ? '과락' : '불합격권')))))))) : h('div', { class: 'empty' }, '아직 응시 기록이 없습니다.')));
   },
 
   startMock(counts, minutes) {
@@ -298,7 +300,7 @@ export default {
     update();
     this.tabBar.replaceChildren();
     this.body.replaceChildren(h('div', { class: 'stack', style: { maxWidth: '860px', margin: '0 auto' } },
-      h('div', { class: 'card row between', style: { position: 'sticky', top: '112px', zIndex: 5 } },
+      h('div', { class: 'card row between', style: { position: 'sticky', top: 'calc(var(--header-h, 92px) + 8px)', zIndex: 5 } },
         h('div', null, h('b', null, `${c.name} 모의고사`), ' ', progressEl),
         h('div', { class: 'row' }, timerEl,
           h('button', { class: 'btn primary', type: 'button', onclick: () => {
@@ -327,9 +329,9 @@ export default {
     store.set(`cert:${c.id}:mocks`, [record, ...store.get(`cert:${c.id}:mocks`, [])].slice(0, 30));
 
     const review = qs.map((q, i) => ({ q, pick: picks[i] })).filter((x) => x.pick !== x.q.answer);
-    this.tabBar.replaceChildren(...TABS.map(([k, l]) => h('button', { type: 'button', class: k === 'mock' ? 'on' : '', onclick: () => { this.tab = k; this.render(); } }, l)));
+    this.tabBar.replaceChildren(...TABS.map(([k, l]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(k === 'mock'), class: k === 'mock' ? 'on' : '', onclick: () => { this.tab = k; this.render(); } }, l)));
     this.body.replaceChildren(h('div', { class: 'stack', style: { maxWidth: '860px', margin: '0 auto' } },
-      h('div', { class: `callout ${passed ? 'good' : 'bad'}` }, h('b', null, passed ? '🎉 합격권입니다!' : `아직 불합격권입니다 — ${failReason}`), ` 총점 ${score}점 (${correctAll}/${qs.length}) · ${minutesUsed}분 사용`),
+      h('div', { class: `callout ${passed ? 'good' : 'bad'}` }, h('b', null, passed ? '🎉 합격권입니다!' : `아직 불합격권입니다 — ${failReason}`), ` 총점 ${score}점 (${correctAll}/${qs.length}) · ${minutesUsed < 1 ? "1분 미만" : `${minutesUsed}분`} 사용`),
       h('div', { class: 'card' },
         h('h3', null, '과목별 결과'),
         subjects.map((s) => h('div', { class: 'bar-row', style: { gridTemplateColumns: 'minmax(0,1.4fr) 1fr 110px' } },

@@ -3,12 +3,14 @@ import {
   sampleSizeProportion, sampleSizeMean, twoProportionTest, welchTest, srmTest,
   mulberry32, randBinomial, randNormal, normCdf,
 } from '../stats.js';
-import { lineChart, histogram, bins } from '../charts.js';
+import { lineChart, histogram, bins, fitChart } from '../charts.js';
 
 const pct = (v, d = 2) => `${(v * 100).toFixed(d)}%`;
 const pp = (v, d = 2) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(d)}%p`;
 const num = (v) => Math.round(v).toLocaleString();
 const pfmt = (p) => (p < 0.0001 ? '< 0.0001' : p.toFixed(4));
+// "p = 0.0123" / "p < 0.0001" (부등호 중복 방지)
+const peq = (p) => (p < 0.0001 ? 'p < 0.0001' : `p = ${p.toFixed(4)}`);
 
 function field(label, value, { step = 'any', min, suffix, help } = {}) {
   const input = h('input', { type: 'number', value, step, min });
@@ -57,7 +59,7 @@ export default {
 
   // ───────── 표본 크기 ─────────
   sizeView() {
-    const type = selectField('지표 유형', [['prop', '비율 (전환율, 클릭률)'], ['mean', '평균 (객단가, 체류시간)']], 'prop');
+    const type = selectField('지표 유형', [['prop', '비율 (전환율)'], ['mean', '평균 (객단가)']], 'prop');
     const base = field('기준 전환율', 10, { suffix: '%', min: 0 });
     const mean = field('기준 평균', 50000, { min: 0 });
     const sd = field('표준편차', 30000, { min: 0, help: '과거 데이터에서 계산 (매출은 평균보다 큰 경우가 많음)' });
@@ -66,8 +68,8 @@ export default {
     const alpha = selectField('유의수준 α', [[0.01, '0.01'], [0.05, '0.05'], [0.1, '0.10']], 0.05);
     const power = selectField('검정력 1-β', [[0.8, '80%'], [0.9, '90%'], [0.95, '95%']], 0.8);
     const sided = selectField('검정 방향', [['two', '양측'], ['one', '단측']], 'two');
-    const ratio = field('배정 비율 (treatment / control)', 1, { min: 0.1, help: '50:50이면 1' });
-    const traffic = field('실험에 들어오는 일 방문자', 5000, { min: 1 });
+    const ratio = field('배정 비율 (T/C)', 1, { min: 0.1, help: 'treatment ÷ control, 50:50이면 1' });
+    const traffic = field('일 실험 유입 인원', 5000, { min: 1 });
     const out = h('div', { class: 'stack' });
 
     const calc = () => {
@@ -101,7 +103,7 @@ export default {
       const days = Math.ceil(total / traffic.get());
       const weeks = Math.max(1, Math.ceil(days / 7));
       out.replaceChildren(
-        h('div', { class: 'grid grid-3' },
+        h('div', { class: 'kpi-row' },
           kpi(num(res.nControl), 'control 표본'),
           kpi(num(res.nTreatment), 'treatment 표본'),
           kpi(`${days}일`, `최소 기간 → 권장 ${weeks * 7}일 (${weeks}주)`)),
@@ -110,8 +112,8 @@ export default {
           h('div', { class: 'table-wrap' }, h('table', { class: 'data' },
             h('thead', null, h('tr', null, h('th', null, 'MDE'), h('th', null, 'control'), h('th', null, '총 인원'), h('th', null, '기간'))),
             h('tbody', null, sens.map((x) => h('tr', { style: x.k === 1 ? { fontWeight: 600 } : null },
-              h('td', null, x.label), h('td', null, num(x.n.nControl)), h('td', null, num(x.n.nControl + x.n.nTreatment)),
-              h('td', null, `${Math.ceil((x.n.nControl + x.n.nTreatment) / traffic.get())}일`)))))),
+              h('td', { class: 'nowrap' }, x.label), h('td', { class: 'nowrap' }, num(x.n.nControl)), h('td', { class: 'nowrap' }, num(x.n.nControl + x.n.nTreatment)),
+              h('td', { class: 'nowrap' }, `${Math.ceil((x.n.nControl + x.n.nTreatment) / traffic.get())}일`)))))),
           h('p', { class: 'small muted', style: { marginTop: '6px' } }, 'MDE를 절반으로 줄이면 필요한 표본은 약 4배가 됩니다 (효과 크기의 제곱에 반비례).')));
     };
     const inputs = [type, base, mean, sd, mdeType, mde, alpha, power, sided, ratio, traffic];
@@ -149,8 +151,8 @@ export default {
       const sig = r.pValue < a;
       const ciPos = r.ci[0] > 0; const ciNeg = r.ci[1] < 0;
       out.replaceChildren(
-        srm.pValue < 0.001 ? h('div', { class: 'callout bad md', html: md(`⚠️ **SRM 의심**: 50:50 배정 기준으로 인원 비율이 크게 다릅니다 (χ²=${srm.chi2.toFixed(2)}, p=${pfmt(srm.pValue)}). 배정이나 로깅에 문제가 있을 수 있어 **아래 결과를 신뢰하기 어렵습니다.** SRM 검사 탭에서 확인하세요.`) }) : null,
-        h('div', { class: 'grid grid-3' },
+        srm.pValue < 0.001 ? h('div', { class: 'callout bad md', html: md(`⚠️ **SRM 의심**: 50:50 배정 기준으로 인원 비율이 크게 다릅니다 (χ²=${srm.chi2.toFixed(2)}, ${peq(srm.pValue)}). 배정이나 로깅에 문제가 있을 수 있어 **아래 결과를 신뢰하기 어렵습니다.** SRM 검사 탭에서 확인하세요.`) }) : null,
+        h('div', { class: 'kpi-row' },
           kpi(pct(r.pC), 'control 전환율'), kpi(pct(r.pT), 'treatment 전환율'),
           kpi(pp(r.diff), `차이 (상대 ${(r.rel * 100).toFixed(1)}%)`)),
         h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('tbody', null,
@@ -159,8 +161,8 @@ export default {
           row(`${(1 - a) * 100}% 신뢰구간 (차이)`, `[${pp(r.ci[0])}, ${pp(r.ci[1])}]`),
           row('SRM 검사 p-value (50:50 가정)', pfmt(srm.pValue))))),
         h('div', { class: `callout ${sig ? 'good' : 'warn'} md`, html: md(sig
-          ? `**통계적으로 유의합니다** (p = ${pfmt(r.pValue)} < α = ${a}). treatment의 전환율이 ${r.diff > 0 ? '높습니다' : '낮습니다'}. 실제 효과는 ${(1 - a) * 100}% 신뢰구간 기준 **${pp(r.ci[0])} ~ ${pp(r.ci[1])}** 범위로 추정됩니다. ${ciPos ? '하한도 0보다 크므로, 하한 수준의 효과로도 비즈니스적으로 의미가 있는지 판단해 출시를 결정하세요.' : ciNeg ? '구간 전체가 음수이므로 treatment가 더 나쁩니다.' : ''}`
-          : `**통계적으로 유의하지 않습니다** (p = ${pfmt(r.pValue)} ≥ α = ${a}). 다만 이것이 "효과가 없다"는 뜻은 아닙니다. 신뢰구간 **${pp(r.ci[0])} ~ ${pp(r.ci[1])}**가 ${Math.abs(r.ci[1] - r.ci[0]) > 0.02 ? '넓으므로 검정력이 부족했을 수 있습니다. 표본 크기 탭에서 필요한 인원을 확인해 보세요.' : '비교적 좁습니다. 구간 상한이 비즈니스적으로 의미 있는 최소 효과(MDE)보다 작다면 의미 있는 효과는 없다고 볼 수 있고, 그렇지 않다면 판단을 보류하세요.'}`) }));
+          ? `**통계적으로 유의합니다** (${peq(r.pValue)} < α = ${a}). treatment의 전환율이 ${r.diff > 0 ? '높습니다' : '낮습니다'}. 실제 효과는 ${(1 - a) * 100}% 신뢰구간 기준 **${pp(r.ci[0])} ~ ${pp(r.ci[1])}** 범위로 추정됩니다. ${ciPos ? '하한도 0보다 크므로, 하한 수준의 효과로도 비즈니스적으로 의미가 있는지 판단해 출시를 결정하세요.' : ciNeg ? '구간 전체가 음수이므로 treatment가 더 나쁩니다.' : ''}`
+          : `**통계적으로 유의하지 않습니다** (${peq(r.pValue)} ≥ α = ${a}). 다만 이것이 "효과가 없다"는 뜻은 아닙니다. 신뢰구간 **${pp(r.ci[0])} ~ ${pp(r.ci[1])}**가 ${Math.abs(r.ci[1] - r.ci[0]) > 0.02 ? '넓으므로 검정력이 부족했을 수 있습니다. 표본 크기 탭에서 필요한 인원을 확인해 보세요.' : '비교적 좁습니다. 구간 상한이 비즈니스적으로 의미 있는 최소 효과(MDE)보다 작다면 의미 있는 효과는 없다고 볼 수 있고, 그렇지 않다면 판단을 보류하세요.'}`) }));
     };
     [nC, xC, nT, xT, alpha].forEach((f) => f.input.addEventListener('input', calc));
     queueMicrotask(calc);
@@ -191,13 +193,13 @@ export default {
       const r = welchTest({ ...v, alpha: a });
       const sig = r.pValue < a;
       out.replaceChildren(
-        h('div', { class: 'grid grid-3' }, kpi(num(v.mC), 'control 평균'), kpi(num(v.mT), 'treatment 평균'), kpi(`${r.diff >= 0 ? '+' : ''}${num(r.diff)}`, `차이 (상대 ${(r.rel * 100).toFixed(1)}%)`)),
+        h('div', { class: 'kpi-row' }, kpi(num(v.mC), 'control 평균'), kpi(num(v.mT), 'treatment 평균'), kpi(`${r.diff >= 0 ? '+' : ''}${num(r.diff)}`, `차이 (상대 ${(r.rel * 100).toFixed(1)}%)`)),
         h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('tbody', null,
           row('Welch t 통계량', r.t.toFixed(3)), row('자유도 (Welch-Satterthwaite)', r.df.toFixed(1)),
           row('p-value (양측)', pfmt(r.pValue)), row(`${(1 - a) * 100}% 신뢰구간 (차이)`, `[${num(r.ci[0])}, ${num(r.ci[1])}]`)))),
         h('div', { class: `callout ${sig ? 'good' : 'warn'} md`, html: md(sig
-          ? `**통계적으로 유의합니다** (p = ${pfmt(r.pValue)}). 평균 차이는 ${num(r.ci[0])} ~ ${num(r.ci[1])} 범위로 추정됩니다.`
-          : `**통계적으로 유의하지 않습니다** (p = ${pfmt(r.pValue)}). 매출처럼 분산이 큰 지표는 같은 효과를 탐지하는 데 훨씬 많은 표본이 필요합니다. 분산 감소(CUPED), 이상치 윈저라이징, 로그 변환을 검토해 보세요.`) }),
+          ? `**통계적으로 유의합니다** (${peq(r.pValue)}). 평균 차이는 ${num(r.ci[0])} ~ ${num(r.ci[1])} 범위로 추정됩니다.`
+          : `**통계적으로 유의하지 않습니다** (${peq(r.pValue)}). 매출처럼 분산이 큰 지표는 같은 효과를 탐지하는 데 훨씬 많은 표본이 필요합니다. 분산 감소(CUPED), 이상치 윈저라이징, 로그 변환을 검토해 보세요.`) }),
         h('div', { class: 'md small muted', html: md('매출 데이터는 오른쪽으로 긴 꼬리를 가지므로, 표본이 작으면 t-검정의 정규 근사가 부정확할 수 있습니다. 부트스트랩으로 평균 차이의 신뢰구간을 구하는 방법도 많이 씁니다.') }));
     };
     [...Object.values(f), alpha].forEach((x) => x.input.addEventListener('input', calc));
@@ -228,7 +230,7 @@ export default {
         h('div', { class: 'grid grid-2' }, kpi(r.chi2.toFixed(2), `χ² (자유도 ${r.df})`), kpi(pfmt(r.pValue), 'p-value')),
         h('div', { class: `callout ${bad ? 'bad' : 'good'} md`, html: md(bad
           ? `**SRM이 발생했습니다** (p < 0.001). 배정이나 로깅 과정에서 한쪽 유저가 체계적으로 빠졌을 가능성이 큽니다. **실험 결과(전환율 차이)를 해석하지 말고**, 플랫폼·브라우저·날짜별로 어디서 불균형이 생겼는지 찾은 뒤 재실험하세요.`
-          : `배정 비율이 설계와 통계적으로 다르지 않습니다 (p = ${pfmt(r.pValue)}). SRM 문제는 없어 보입니다.`) }),
+          : `배정 비율이 설계와 통계적으로 다르지 않습니다 (${peq(r.pValue)}). SRM 문제는 없어 보입니다.`) }),
         h('div', { class: 'md small muted', html: md('SRM 판단 기준으로는 보통 **p < 0.001**처럼 엄격한 임계값을 씁니다. 실험을 많이 돌리면 우연히 걸리는 경우(거짓 경보)도 생기기 때문입니다.') }));
     };
     groups.forEach((g) => { g.n.input.addEventListener('input', calc); g.r.input.addEventListener('input', calc); });
@@ -287,7 +289,7 @@ export default {
           kpi(pct(finalFP / S, 1), '거짓 양성률 — 마지막 날 한 번만 검정'),
           kpi(pct(peekFP / S, 1), '거짓 양성률 — 매일 확인하고 유의하면 종료')),
         h('div', { class: 'legend' }, h('span', { style: { '--c': 'var(--series-2)' } }, '한 번이라도 p < 0.05를 찍은 A/A 실험'), h('span', { style: { '--c': 'var(--series-muted)' } }, '끝까지 유의하지 않은 실험')),
-        lineChart({ series, yMin: 0, yMax: 1, hline: { y: 0.05, label: 'α = 0.05' }, xLabel: '실험 일차 (일)', yLabel: 'p-value (A/A 실험 20개)', yFmt: (v) => (+v).toFixed(2), highlight: series.filter((x) => x.label) }),
+        fitChart((width, height) => lineChart({ series, yMin: 0, yMax: 1, hline: { y: 0.05, label: 'α = 0.05' }, xLabel: '실험 일차 (일)', yLabel: 'p-value (A/A 실험 20개)', yFmt: (v) => (+v).toFixed(2), highlight: series.filter((x) => x.label), width, height }), { maxHeight: 320, minHeight: 240 }),
         h('div', { class: 'callout warn md', html: md(`두 그룹에 **실제 차이가 전혀 없는(A/A)** 실험인데도, 매일 결과를 보다가 유의해지는 순간 멈추면 거짓 양성률이 **${pct(peekFP / S, 1)}**까지 올라갑니다 (설계상 5%). p-value는 실험 중에 무작위로 오르내리기 때문에, 우연히 0.05 아래로 내려간 순간에 멈추면 거짓 승리를 선언하게 됩니다.`) }));
     };
     return h('div', { class: 'card stack' },
@@ -316,7 +318,7 @@ export default {
       out.replaceChildren(
         h('div', { class: 'grid grid-2' }, kpi(pct(fp, 1), '효과 없음(H0)에서 p < 0.05 비율 ≈ α'), kpi(pct(power, 1), '실제 효과 있음(H1)에서 p < 0.05 비율 = 검정력')),
         h('div', { class: 'legend' }, h('span', { style: { '--c': 'var(--series-muted)' } }, '효과 없음 (H0)'), h('span', { style: { '--c': 'var(--series-1)' } }, `실제 효과 +${lift.get()}% (H1)`)),
-        histogram({ layers: [{ bins: bins(h0, 0, 1, 20), color: 'var(--series-muted)', label: 'H0' }, { bins: bins(h1, 0, 1, 20), color: 'var(--series-1)', label: 'H1' }], xFmt: (v) => (+v).toFixed(2), xLabel: 'p-value', yLabel: '빈도 (각 2,000회)', vline: { x: 0.05, label: '0.05' } }),
+        fitChart((width, height) => histogram({ layers: [{ bins: bins(h0, 0, 1, 20), color: 'var(--series-muted)', label: 'H0' }, { bins: bins(h1, 0, 1, 20), color: 'var(--series-1)', label: 'H1' }], xFmt: (v) => (+v).toFixed(2), xLabel: 'p-value', yLabel: '빈도 (각 2,000회)', vline: { x: 0.05, label: '0.05' }, width, height }), { maxHeight: 300, minHeight: 220 }),
         h('div', { class: 'callout info md', html: md(`**효과가 없으면 p-value는 0~1 사이에 균등하게** 퍼집니다. 그래서 5%는 우연히 0.05 아래로 떨어집니다 (1종 오류). **효과가 있으면 p-value가 0 쪽으로 몰리며**, 0.05 아래에 떨어지는 비율이 검정력입니다. 인원을 줄이거나 효과를 작게 하면 검정력이 어떻게 변하는지 확인해 보세요.`) }));
     };
     return h('div', { class: 'card stack' },
@@ -343,9 +345,9 @@ export default {
       out.replaceChildren(
         h('div', { class: 'grid grid-2' },
           h('div', null, h('div', { class: 'small muted' }, '모집단 분포 (개별 주문 금액)'),
-            histogram({ layers: [{ bins: bins(pop, 0, popMax, 30), color: 'var(--series-muted)' }], xFmt: won, xLabel: '주문 금액 (원)', width: 420, height: 220 })),
+            fitChart((width, height) => histogram({ layers: [{ bins: bins(pop, 0, popMax, 30), color: 'var(--series-muted)' }], xFmt: won, xLabel: '주문 금액 (원)', width, height }), { maxHeight: 240, minHeight: 200 })),
           h('div', null, h('div', { class: 'small muted' }, `표본평균의 분포 (n = ${N}, 3,000번 반복)`),
-            histogram({ layers: [{ bins: bins(means, mMin, mMax, 30), color: 'var(--series-1)' }], xFmt: won, xLabel: '표본평균 (원)', width: 420, height: 220, vline: { x: mu, label: '모평균' } }))),
+            fitChart((width, height) => histogram({ layers: [{ bins: bins(means, mMin, mMax, 30), color: 'var(--series-1)' }], xFmt: won, xLabel: '표본평균 (원)', width, height, vline: { x: mu, label: '모평균' } }), { maxHeight: 240, minHeight: 200 }))),
         h('div', { class: 'callout info md', html: md(`모집단은 오른쪽으로 긴 꼬리를 가진 분포지만, **표본평균의 분포는 n이 커질수록 정규분포 모양**이 되고 폭(표준오차 σ/√n)이 좁아집니다. n을 1, 5, 30, 300으로 바꿔 비교해 보세요. 치우침이 심한 데이터일수록 정규 근사에 더 큰 n이 필요합니다.`) }));
     };
     return h('div', { class: 'card stack' },

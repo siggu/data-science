@@ -48,7 +48,7 @@ export default {
           h('div', { class: 'grid', style: { gap: '14px', marginTop: '10px', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' } },
             kpi(`${known} / ${QUESTIONS.length}`, '익힌 면접 질문'),
             kpi(`${solved} / ${PROBLEMS.length}`, '맞힌 연습 문제'),
-            kpi(`${mocks.length}회`, `모의 면접 (평균 ${avg}점)`),
+            kpi(`${mocks.length}회`, mocks.length ? `모의 면접 (평균 ${avg}점)` : '모의 면접'),
             kpi(`${casesDone} / ${CASES.length}`, '완료한 케이스')),
           h('p', { class: 'small muted', style: { marginTop: '12px', marginBottom: 0 } }, '진행 현황은 이 브라우저에만 저장됩니다.'))),
 

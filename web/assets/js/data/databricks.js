@@ -8,7 +8,7 @@ export const CONCEPTS = [
   {
     title: 'Unity Catalog',
     body: `- **3단계 네임스페이스**: \`catalog.schema.table\` (예: \`prod.sales.orders\`)
-- 중앙 집중식 **권한 관리**: \`GRANT SELECT ON TABLE prod.sales.orders TO \\\`analysts\\\`\`
+- 중앙 집중식 **권한 관리**: \`\`GRANT SELECT ON TABLE prod.sales.orders TO \`analysts\`\`\`
 - **리니지**: 테이블·컬럼 단위로 데이터 흐름을 추적 → 영향 범위 분석
 - Managed table(UC가 저장소까지 관리)과 External table(외부 경로) 구분
 - Volume: 비정형 파일(CSV, 이미지) 저장 공간 → \`/Volumes/catalog/schema/volume/file.csv\``,

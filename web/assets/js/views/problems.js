@@ -23,7 +23,7 @@ export default {
         h('h1', null, 'SQL · pandas 문제은행'),
         h('p', null, `면접과 실무에서 자주 나오는 패턴 ${PROBLEMS.length}문제입니다. 샘플 데이터로 직접 풀고 "채점"을 누르면 정답 쿼리의 결과와 비교합니다. 컬럼 이름은 채점하지 않고 값과 행 수, 컬럼 수를 비교합니다 (숫자는 소수 넷째 자리까지). 맞힌 뒤에는 다른 언어 풀이(SQL ↔ pandas)도 확인해 보세요.`)),
       h('div', { class: 'split' },
-        h('aside', { class: 'card flat sticky-side' }, this.filterEl, this.listEl),
+        h('aside', { class: 'card flat sticky-side prob-aside' }, this.filterEl, this.listEl),
         h('div', { style: { minWidth: 0 } }, this.detailEl)));
     this.renderFilters();
     this.renderList();
@@ -70,6 +70,9 @@ export default {
     store.set('prob:last', p.id);
     this.renderList();
     this.renderDetail(p);
+    // 좁은 화면(목록이 문제 위에 쌓이는 레이아웃)에서는 선택한 문제로 스크롤
+    if (this.mounted && window.matchMedia('(max-width: 900px)').matches) this.detailEl.scrollIntoView({ block: 'start' });
+    this.mounted = true;
     if (p.lang === 'pandas' && engineState.pyodide === 'idle') {
       // 미리 로딩 시작 (사용자가 문제를 읽는 동안)
       getPyodide().catch(() => {});
