@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DA 면접 준비 랩</title>
+  <meta name="description" content="데이터 분석가·사이언티스트 면접 질문과 모범 답변, 브라우저 SQL/pandas 연습 환경, A/B 테스트 도구, 케이스 트레이닝, Databricks 대비">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a64d6'/%3E%3Cpath d='M8 22V14M14 22V9M20 22v-6M26 22V12' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script>
+    // 저장된 테마를 첫 페인트 전에 적용
+    try { const t = localStorage.getItem('dsprep:theme'); if (t) document.documentElement.dataset.theme = JSON.parse(t); } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-row">
+        <a class="brand" href="#/home"><span class="brand-mark">DA</span><span>면접 준비 랩 <small>SQL · pandas · 통계 · 실험</small></span></a>
+        <div class="row">
+          <span class="engine-status" id="engine-status" title="브라우저 실행 엔진 상태"></span>
+          <button class="btn ghost sm theme-toggle" id="theme-toggle" type="button" aria-label="테마 전환">테마</button>
+        </div>
+      </div>
+      <nav class="nav" id="nav" aria-label="주요 메뉴"></nav>
+    </div>
+  </header>
+  <main id="main"></main>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>

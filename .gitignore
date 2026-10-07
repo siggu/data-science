@@ -1,0 +1,8 @@
+web/vendor/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+local-spark/warehouse/
+local-spark/metastore_db/
+node_modules/
+.DS_Store

@@ -1,0 +1,17 @@
+services:
+  spark:
+    build: .
+    image: dbx-local-practice
+    container_name: dbx-local
+    ports:
+      - "8888:8888"   # JupyterLab
+      - "4040:4040"   # Spark UI (쿼리 실행 계획 확인)
+    volumes:
+      - ../web/data:/data:ro                       # 웹 플레이그라운드와 같은 샘플 CSV
+      - ./notebooks:/home/analyst/work/notebooks   # 노트북 (호스트와 공유)
+      - warehouse:/home/analyst/warehouse          # Delta 테이블 (재시작해도 유지)
+    environment:
+      - SPARK_DRIVER_MEMORY=2g
+
+volumes:
+  warehouse:
