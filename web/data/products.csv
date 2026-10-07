@@ -1,0 +1,145 @@
+product_id,product_name,category,price
+1,Wireless Earbuds Basic,electronics,202700
+2,Wireless Earbuds Plus,electronics,154500
+3,Wireless Earbuds Pro,electronics,375700
+4,Smart Watch Basic,electronics,184600
+5,Smart Watch Plus,electronics,52800
+6,Smart Watch Pro,electronics,422300
+7,USB-C Hub Basic,electronics,199600
+8,USB-C Hub Plus,electronics,256900
+9,USB-C Hub Pro,electronics,84800
+10,Bluetooth Speaker Basic,electronics,126300
+11,Bluetooth Speaker Plus,electronics,134400
+12,Bluetooth Speaker Pro,electronics,402800
+13,Power Bank Basic,electronics,172000
+14,Power Bank Plus,electronics,267700
+15,Power Bank Pro,electronics,210300
+16,Mechanical Keyboard Basic,electronics,73600
+17,Mechanical Keyboard Plus,electronics,188600
+18,Mechanical Keyboard Pro,electronics,59200
+19,Webcam Basic,electronics,215300
+20,Webcam Plus,electronics,211300
+21,Webcam Pro,electronics,335700
+22,Tablet Stand Basic,electronics,103700
+23,Tablet Stand Plus,electronics,311400
+24,Tablet Stand Pro,electronics,389400
+25,Denim Jacket Basic,fashion,114700
+26,Denim Jacket Plus,fashion,47100
+27,Denim Jacket Pro,fashion,124200
+28,Linen Shirt Basic,fashion,17800
+29,Linen Shirt Plus,fashion,40500
+30,Linen Shirt Pro,fashion,172400
+31,Sneakers Basic,fashion,110300
+32,Sneakers Plus,fashion,174600
+33,Sneakers Pro,fashion,92800
+34,Wool Coat Basic,fashion,60900
+35,Wool Coat Plus,fashion,92500
+36,Wool Coat Pro,fashion,62500
+37,Cotton Tee Basic,fashion,29100
+38,Cotton Tee Plus,fashion,93500
+39,Cotton Tee Pro,fashion,70800
+40,Chino Pants Basic,fashion,100400
+41,Chino Pants Plus,fashion,87100
+42,Chino Pants Pro,fashion,205700
+43,Leather Belt Basic,fashion,104400
+44,Leather Belt Plus,fashion,66500
+45,Leather Belt Pro,fashion,205600
+46,Knit Beanie Basic,fashion,118200
+47,Knit Beanie Plus,fashion,78900
+48,Knit Beanie Pro,fashion,84500
+49,Sunscreen Basic,beauty,51200
+50,Sunscreen Plus,beauty,19500
+51,Sunscreen Pro,beauty,32900
+52,Lip Tint Basic,beauty,6900
+53,Lip Tint Plus,beauty,72500
+54,Lip Tint Pro,beauty,84400
+55,Cleansing Oil Basic,beauty,52700
+56,Cleansing Oil Plus,beauty,72000
+57,Cleansing Oil Pro,beauty,61600
+58,Sheet Mask Set Basic,beauty,43700
+59,Sheet Mask Set Plus,beauty,19500
+60,Sheet Mask Set Pro,beauty,23500
+61,Hair Serum Basic,beauty,50200
+62,Hair Serum Plus,beauty,46600
+63,Hair Serum Pro,beauty,73400
+64,Moisturizer Basic,beauty,56600
+65,Moisturizer Plus,beauty,60000
+66,Moisturizer Pro,beauty,72100
+67,Perfume Basic,beauty,43100
+68,Perfume Plus,beauty,32900
+69,Perfume Pro,beauty,14200
+70,Hand Cream Basic,beauty,35000
+71,Hand Cream Plus,beauty,25600
+72,Hand Cream Pro,beauty,56000
+73,Cold Brew Coffee Basic,grocery,31200
+74,Cold Brew Coffee Plus,grocery,13600
+75,Cold Brew Coffee Pro,grocery,8600
+76,Granola Basic,grocery,12400
+77,Granola Plus,grocery,16000
+78,Granola Pro,grocery,42000
+79,Olive Oil Basic,grocery,21500
+80,Olive Oil Plus,grocery,36100
+81,Olive Oil Pro,grocery,42200
+82,Green Tea Basic,grocery,16500
+83,Green Tea Plus,grocery,37400
+84,Green Tea Pro,grocery,14600
+85,Protein Bar Box Basic,grocery,3900
+86,Protein Bar Box Plus,grocery,7700
+87,Protein Bar Box Pro,grocery,45400
+88,Kimchi Basic,grocery,18300
+89,Kimchi Plus,grocery,10600
+90,Kimchi Pro,grocery,33100
+91,Rice 10kg Basic,grocery,8200
+92,Rice 10kg Plus,grocery,32500
+93,Rice 10kg Pro,grocery,30100
+94,Mixed Nuts Basic,grocery,15700
+95,Mixed Nuts Plus,grocery,16400
+96,Mixed Nuts Pro,grocery,40300
+97,Desk Lamp Basic,home,38300
+98,Desk Lamp Plus,home,16900
+99,Desk Lamp Pro,home,27500
+100,Bath Towel Set Basic,home,92600
+101,Bath Towel Set Plus,home,109700
+102,Bath Towel Set Pro,home,116200
+103,Storage Box Basic,home,29600
+104,Storage Box Plus,home,116500
+105,Storage Box Pro,home,128200
+106,Scented Candle Basic,home,70400
+107,Scented Candle Plus,home,57800
+108,Scented Candle Pro,home,51000
+109,Pillow Basic,home,14300
+110,Pillow Plus,home,109000
+111,Pillow Pro,home,79000
+112,Throw Blanket Basic,home,23900
+113,Throw Blanket Plus,home,41600
+114,Throw Blanket Pro,home,97800
+115,Coffee Mug Basic,home,21600
+116,Coffee Mug Plus,home,103800
+117,Coffee Mug Pro,home,125200
+118,Plant Pot Basic,home,70600
+119,Plant Pot Plus,home,55800
+120,Plant Pot Pro,home,105100
+121,SQL Cookbook Basic,books,26000
+122,SQL Cookbook Plus,books,34500
+123,SQL Cookbook Pro,books,23700
+124,Python for Data Analysis Basic,books,22000
+125,Python for Data Analysis Plus,books,16200
+126,Python for Data Analysis Pro,books,40300
+127,Statistics 101 Basic,books,19900
+128,Statistics 101 Plus,books,19300
+129,Statistics 101 Pro,books,24400
+130,Storytelling with Data Basic,books,26100
+131,Storytelling with Data Plus,books,20100
+132,Storytelling with Data Pro,books,57700
+133,Lean Analytics Basic,books,25900
+134,Lean Analytics Plus,books,25400
+135,Lean Analytics Pro,books,44200
+136,Trustworthy Online Experiments Basic,books,12500
+137,Trustworthy Online Experiments Plus,books,43800
+138,Trustworthy Online Experiments Pro,books,39800
+139,Naked Statistics Basic,books,30800
+140,Naked Statistics Plus,books,17500
+141,Naked Statistics Pro,books,40000
+142,Data Science from Scratch Basic,books,23800
+143,Data Science from Scratch Plus,books,43100
+144,Data Science from Scratch Pro,books,43400
