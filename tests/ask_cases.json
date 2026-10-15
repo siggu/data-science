@@ -1,0 +1,1068 @@
+[
+  {
+    "q": "이 코드에서 si_do_name별 sales_qty 합을 구하는 방법",
+    "code": "import pandas as pd\n\ndf = pd.read_csv(\"store_sales_202409.csv\", dtype={\"store_cd\": str, \"item_cd\": str})\ndf = df[[\"base_dt\", \"store_cd\", \"si_do_name\", \"sigungu_name\", \"item_cd\", \"sales_qty\", \"sales_amt\"]]\ndf[\"base_dt\"] = pd.to_datetime(df[\"base_dt\"])\ndf.head()",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "si_do_name"
+      ],
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "sales_qty"
+        }
+      ]
+    },
+    "sample": false,
+    "note": "user-provided example"
+  },
+  {
+    "q": "sigungu_name 기준으로 sales_amt 평균 좀 뽑아주세요",
+    "code": "import pandas as pd\n\ndf = pd.read_csv(\"store_sales_202409.csv\", dtype={\"store_cd\": str, \"item_cd\": str})\ndf = df[[\"base_dt\", \"store_cd\", \"si_do_name\", \"sigungu_name\", \"item_cd\", \"sales_qty\", \"sales_amt\"]]\ndf[\"base_dt\"] = pd.to_datetime(df[\"base_dt\"])\ndf.head()",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "sigungu_name"
+      ],
+      "metrics": [
+        {
+          "agg": "mean",
+          "col": "sales_amt"
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "base_dt, item_cd별로 sales_qty 합이랑 sales_amt 합 같이 보고 싶은데 SQL로 어떻게 짜요?",
+    "code": "CREATE TABLE dw.store_sales_daily (\n    base_dt      DATE,\n    store_cd     VARCHAR(10),\n    si_do_name   VARCHAR(20),\n    sigungu_name VARCHAR(30),\n    item_cd      VARCHAR(20),\n    sales_qty    INT,\n    sales_amt    BIGINT\n);",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "base_dt",
+        "item_cd"
+      ],
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "sales_qty"
+        },
+        {
+          "agg": "sum",
+          "col": "sales_amt"
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "os별 user_id 고유 개수 구하는 쿼리",
+    "code": "CREATE TABLE app_log (\n  event_dt     DATE,\n  event_time   TIMESTAMP,\n  user_id      BIGINT,\n  os           VARCHAR(10),   -- ios / android\n  app_ver      VARCHAR(10),\n  screen_name  VARCHAR(50)\n);",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "os"
+      ],
+      "metrics": [
+        {
+          "agg": "nunique",
+          "col": "user_id"
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "screen_name마다 로그 몇 건 찍혔는지 세고 싶어요",
+    "code": "logs = pd.read_parquet(\"app_log_2024-10.parquet\")\nlogs.columns\n# Index(['event_dt', 'event_time', 'user_id', 'os', 'app_ver', 'screen_name'], dtype='object')",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "screen_name"
+      ],
+      "metrics": [
+        {
+          "agg": "count",
+          "col": null
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "region별 amount 총합 큰 순으로 상위 3개만",
+    "code": "date,region,product,qty,amount\n2024-01-02,서울,A01,3,45000\n2024-01-02,부산,B11,1,12000",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "region"
+      ],
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "amount"
+        }
+      ],
+      "order": "desc",
+      "limit": 3
+    },
+    "sample": false,
+    "note": "CSV header pasted"
+  },
+  {
+    "q": "전체 qty 합계랑 amount 평균만 한 줄로 보고 싶음",
+    "code": "date,region,product,qty,amount\n2024-01-02,서울,A01,3,45000\n2024-01-02,부산,B11,1,12000",
+    "expect": {
+      "recipe": "total_agg",
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "qty"
+        },
+        {
+          "agg": "mean",
+          "col": "amount"
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "cust_no별 pay_amt 합계가 100만 이상인 고객만 뽑으려면",
+    "code": "create table tb_order (\n    order_no   varchar(20) primary key,\n    cust_no    varchar(12),\n    order_dt   date,\n    pay_amt    numeric(12, 0),\n    pay_type   varchar(10)\n);",
+    "expect": {
+      "recipe": "having",
+      "keys": [
+        "cust_no"
+      ],
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "pay_amt"
+        }
+      ],
+      "having": {
+        "op": ">=",
+        "value": 1000000
+      }
+    },
+    "sample": false
+  },
+  {
+    "q": "sales_qty가 0 이하인 행만 따로 보고 싶어요 (반품 건 확인용)",
+    "code": "import pandas as pd\n\ndf = pd.read_csv(\"store_sales_202409.csv\", dtype={\"store_cd\": str, \"item_cd\": str})\ndf = df[[\"base_dt\", \"store_cd\", \"si_do_name\", \"sigungu_name\", \"item_cd\", \"sales_qty\", \"sales_amt\"]]\ndf[\"base_dt\"] = pd.to_datetime(df[\"base_dt\"])\ndf.head()",
+    "expect": {
+      "recipe": "filter",
+      "filters": [
+        {
+          "col": "sales_qty",
+          "op": "<=",
+          "value": 0
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "screen_name에 pay 들어간 로그만 남기려면?",
+    "code": "logs = pd.read_parquet(\"app_log_2024-10.parquet\")\nlogs.columns\n# Index(['event_dt', 'event_time', 'user_id', 'os', 'app_ver', 'screen_name'], dtype='object')",
+    "expect": {
+      "recipe": "filter",
+      "filters": [
+        {
+          "col": "screen_name",
+          "op": "contains",
+          "value": "pay"
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "amount 기준 내림차순 정렬해서 상위 10행",
+    "code": "date,region,product,qty,amount\n2024-01-02,서울,A01,3,45000\n2024-01-02,부산,B11,1,12000",
+    "expect": {
+      "recipe": "sort_limit",
+      "value": "amount",
+      "order": "desc",
+      "limit": 10
+    },
+    "sample": false
+  },
+  {
+    "q": "si_do_name마다 sales_amt 상위 3개 store_cd 뽑기",
+    "code": "import pandas as pd\n\ndf = pd.read_csv(\"store_sales_202409.csv\", dtype={\"store_cd\": str, \"item_cd\": str})\ndf = df[[\"base_dt\", \"store_cd\", \"si_do_name\", \"sigungu_name\", \"item_cd\", \"sales_qty\", \"sales_amt\"]]\ndf[\"base_dt\"] = pd.to_datetime(df[\"base_dt\"])\ndf.head()",
+    "expect": {
+      "recipe": "top_n_per_group",
+      "keys": [
+        "si_do_name"
+      ],
+      "item": "store_cd",
+      "value": "sales_amt",
+      "limit": 3
+    },
+    "sample": false
+  },
+  {
+    "q": "event_dt 기준으로 일별 user_id 유니크 수 (DAU) 구하는 법",
+    "code": "CREATE TABLE app_log (\n  event_dt     DATE,\n  event_time   TIMESTAMP,\n  user_id      BIGINT,\n  os           VARCHAR(10),   -- ios / android\n  app_ver      VARCHAR(10),\n  screen_name  VARCHAR(50)\n);",
+    "expect": {
+      "recipe": "date_agg",
+      "dateCol": "event_dt",
+      "unit": "day",
+      "metrics": [
+        {
+          "agg": "nunique",
+          "col": "user_id"
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "월별 amount 합계",
+    "code": "date,region,product,qty,amount\n2024-01-02,서울,A01,3,45000\n2024-01-02,부산,B11,1,12000",
+    "expect": {
+      "recipe": "date_agg",
+      "dateCol": "date",
+      "unit": "month",
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "amount"
+        }
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "date 순서대로 amount 누적합 컬럼 하나 추가하고 싶어요",
+    "code": "date,region,product,qty,amount\n2024-01-02,서울,A01,3,45000\n2024-01-02,부산,B11,1,12000",
+    "expect": {
+      "recipe": "running_total",
+      "value": "amount",
+      "orderCol": "date"
+    },
+    "sample": false
+  },
+  {
+    "q": "base_dt 기준 월별 sales_amt 전월 대비 증감률 계산",
+    "code": "SELECT base_dt, store_cd, sales_amt\nFROM dw.store_sales_daily\nWHERE base_dt >= '2024-01-01'",
+    "expect": {
+      "recipe": "lag_diff",
+      "value": "sales_amt",
+      "unit": "month"
+    },
+    "sample": false
+  },
+  {
+    "q": "dept_cd 안에서 salary 높은 순으로 순위 매기는 SQL",
+    "code": "CREATE TABLE hr_emp_salary (\n  emp_no   INT,\n  emp_nm   VARCHAR(20),\n  dept_cd  VARCHAR(5),\n  salary   INT,\n  join_ymd CHAR(8)\n);",
+    "expect": {
+      "recipe": "rank",
+      "value": "salary",
+      "keys": [
+        "dept_cd"
+      ],
+      "order": "desc"
+    },
+    "sample": false
+  },
+  {
+    "q": "product별 amount 비중(%) 구하기",
+    "code": "date,region,product,qty,amount\n2024-01-02,서울,A01,3,45000\n2024-01-02,부산,B11,1,12000",
+    "expect": {
+      "recipe": "share",
+      "keys": [
+        "product"
+      ],
+      "value": "amount"
+    },
+    "sample": false
+  },
+  {
+    "q": "os별로 is_purchase가 1인 유저 비율 어떻게 구해요",
+    "code": "df = pd.read_csv(\"purchase_flag.csv\")\nprint(df.columns.tolist())\n# ['user_id', 'os', 'first_visit_dt', 'is_purchase']",
+    "expect": {
+      "recipe": "cond_rate",
+      "keys": [
+        "os"
+      ]
+    },
+    "sample": false,
+    "note": "cond: is_purchase == 1"
+  },
+  {
+    "q": "sales_amt를 0, 10000, 50000, 100000 구간으로 나눠서 보고 싶어요",
+    "code": "import pandas as pd\n\ndf = pd.read_csv(\"store_sales_202409.csv\", dtype={\"store_cd\": str, \"item_cd\": str})\ndf = df[[\"base_dt\", \"store_cd\", \"si_do_name\", \"sigungu_name\", \"item_cd\", \"sales_qty\", \"sales_amt\"]]\ndf[\"base_dt\"] = pd.to_datetime(df[\"base_dt\"])\ndf.head()",
+    "expect": {
+      "recipe": "bucket",
+      "value": "sales_amt",
+      "bins": [
+        0,
+        10000,
+        50000,
+        100000
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "base_dt 기준 sales_qty 7일 이동평균",
+    "code": "import pandas as pd\n\ndf = pd.read_csv(\"store_sales_202409.csv\", dtype={\"store_cd\": str, \"item_cd\": str})\ndf = df[[\"base_dt\", \"store_cd\", \"si_do_name\", \"sigungu_name\", \"item_cd\", \"sales_qty\", \"sales_amt\"]]\ndf[\"base_dt\"] = pd.to_datetime(df[\"base_dt\"])\ndf.head()",
+    "expect": {
+      "recipe": "moving_avg",
+      "value": "sales_qty",
+      "window": 7
+    },
+    "sample": false
+  },
+  {
+    "q": "birth_ym 결측치가 몇 개인지 확인하는 코드",
+    "code": "cust = pd.DataFrame({\n    \"cust_id\": [101, 102, 103, 104],\n    \"gender\": [\"M\", None, \"F\", None],\n    \"birth_ym\": [\"198905\", \"199212\", None, \"200101\"],\n    \"join_dt\": [\"2023-01-05\", \"2023-02-11\", \"2023-02-20\", \"2023-03-02\"],\n    \"grade\": [\"VIP\", \"GOLD\", \"GOLD\", \"SILVER\"],\n})",
+    "expect": {
+      "recipe": "null_handle",
+      "col": "birth_ym",
+      "mode": "count"
+    },
+    "sample": false
+  },
+  {
+    "q": "gender 비어있는 건 'U'로 채우고 싶음",
+    "code": "cust = pd.DataFrame({\n    \"cust_id\": [101, 102, 103, 104],\n    \"gender\": [\"M\", None, \"F\", None],\n    \"birth_ym\": [\"198905\", \"199212\", None, \"200101\"],\n    \"join_dt\": [\"2023-01-05\", \"2023-02-11\", \"2023-02-20\", \"2023-03-02\"],\n    \"grade\": [\"VIP\", \"GOLD\", \"GOLD\", \"SILVER\"],\n})",
+    "expect": {
+      "recipe": "null_handle",
+      "col": "gender",
+      "mode": "fill"
+    },
+    "sample": false
+  },
+  {
+    "q": "user_id, event_dt 기준으로 중복 행 제거",
+    "code": "logs = pd.read_parquet(\"app_log_2024-10.parquet\")\nlogs.columns\n# Index(['event_dt', 'event_time', 'user_id', 'os', 'app_ver', 'screen_name'], dtype='object')",
+    "expect": {
+      "recipe": "dedupe",
+      "cols": [
+        "user_id",
+        "event_dt"
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "screen_name 종류가 뭐뭐 있는지 목록만 보고 싶어요",
+    "code": "CREATE TABLE app_log (\n  event_dt     DATE,\n  event_time   TIMESTAMP,\n  user_id      BIGINT,\n  os           VARCHAR(10),   -- ios / android\n  app_ver      VARCHAR(10),\n  screen_name  VARCHAR(50)\n);",
+    "expect": {
+      "recipe": "distinct",
+      "cols": [
+        "screen_name"
+      ]
+    },
+    "sample": false
+  },
+  {
+    "q": "sales에 store_master를 store_cd로 left join 하는 법",
+    "code": "sales = pd.read_csv(\"sales.csv\")          # base_dt, store_cd, item_cd, sales_qty, sales_amt\nstore_master = pd.read_csv(\"store_master.csv\")  # store_cd, store_name, si_do_name, open_dt",
+    "expect": {
+      "recipe": "join",
+      "right": "store_master",
+      "key": "store_cd",
+      "how": "left"
+    },
+    "sample": false
+  },
+  {
+    "q": "base_dt를 행으로, si_do_name을 열로 해서 sales_qty 피벗 테이블 만들기",
+    "code": "import pandas as pd\n\ndf = pd.read_csv(\"store_sales_202409.csv\", dtype={\"store_cd\": str, \"item_cd\": str})\ndf = df[[\"base_dt\", \"store_cd\", \"si_do_name\", \"sigungu_name\", \"item_cd\", \"sales_qty\", \"sales_amt\"]]\ndf[\"base_dt\"] = pd.to_datetime(df[\"base_dt\"])\ndf.head()",
+    "expect": {
+      "recipe": "pivot",
+      "index": "base_dt",
+      "columns": "si_do_name",
+      "value": "sales_qty"
+    },
+    "sample": false
+  },
+  {
+    "q": "orders에서 status별 주문 수",
+    "code": "",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "status"
+      ],
+      "metrics": [
+        {
+          "agg": "count",
+          "col": null
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "결제수단별 총 매출 알려줘 (orders 테이블)",
+    "code": "",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "payment_method"
+      ],
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "total_amount"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 기준으로 유저별 매출 TOP 5 뽑아줘",
+    "code": "",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "user_id"
+      ],
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "total_amount"
+        }
+      ],
+      "order": "desc",
+      "limit": 5
+    },
+    "sample": true,
+    "note": "top N groups -> group_agg with order/limit"
+  },
+  {
+    "q": "events by event_type count 좀 볼 수 있을까요",
+    "code": "",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "event_type"
+      ],
+      "metrics": [
+        {
+          "agg": "count",
+          "col": null
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "products 카테고리마다 평균 가격이 얼마인지",
+    "code": "",
+    "expect": {
+      "recipe": "group_agg",
+      "keys": [
+        "category"
+      ],
+      "metrics": [
+        {
+          "agg": "mean",
+          "col": "price"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 전체 매출 합계랑 평균 주문금액",
+    "code": "",
+    "expect": {
+      "recipe": "total_agg",
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "total_amount"
+        },
+        {
+          "agg": "mean",
+          "col": "total_amount"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders에 주문한 유저 수가 총 몇 명이에요?",
+    "code": "",
+    "expect": {
+      "recipe": "total_agg",
+      "metrics": [
+        {
+          "agg": "nunique",
+          "col": "user_id"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "ab_test에서 revenue 총합 얼마야",
+    "code": "",
+    "expect": {
+      "recipe": "total_agg",
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "revenue"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders에서 매출 합계가 50만 이상인 유저만 뽑아줘",
+    "code": "",
+    "expect": {
+      "recipe": "having",
+      "keys": [
+        "user_id"
+      ],
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "total_amount"
+        }
+      ],
+      "having": {
+        "op": ">=",
+        "value": 500000
+      }
+    },
+    "sample": true
+  },
+  {
+    "q": "주문 건수가 3건 넘는 user_id 리스트 (orders)",
+    "code": "",
+    "expect": {
+      "recipe": "having",
+      "keys": [
+        "user_id"
+      ],
+      "metrics": [
+        {
+          "agg": "count",
+          "col": null
+        }
+      ],
+      "having": {
+        "op": ">",
+        "value": 3
+      }
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 중에 status가 cancelled인 것만",
+    "code": "",
+    "expect": {
+      "recipe": "filter",
+      "filters": [
+        {
+          "col": "status",
+          "op": "=",
+          "value": "cancelled"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "total_amount 10만원 이상인 주문만 보여줘 orders",
+    "code": "",
+    "expect": {
+      "recipe": "filter",
+      "filters": [
+        {
+          "col": "total_amount",
+          "op": ">=",
+          "value": 100000
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders에서 쿠폰 안 쓴 주문만 (coupon_code 없는 거)",
+    "code": "",
+    "expect": {
+      "recipe": "filter",
+      "filters": [
+        {
+          "col": "coupon_code",
+          "op": "isnull",
+          "value": null
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "products에서 product_name에 Earbuds 포함된 상품만",
+    "code": "",
+    "expect": {
+      "recipe": "filter",
+      "filters": [
+        {
+          "col": "product_name",
+          "op": "contains",
+          "value": "Earbuds"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders에서 total_amount 가장 큰 주문 10개",
+    "code": "",
+    "expect": {
+      "recipe": "sort_limit",
+      "value": "total_amount",
+      "order": "desc",
+      "limit": 10
+    },
+    "sample": true
+  },
+  {
+    "q": "employees 연봉 낮은 순으로 5명만",
+    "code": "",
+    "expect": {
+      "recipe": "sort_limit",
+      "value": "salary",
+      "order": "asc",
+      "limit": 5
+    },
+    "sample": true
+  },
+  {
+    "q": "products에서 카테고리별로 가격 제일 비싼 상품 3개씩",
+    "code": "",
+    "expect": {
+      "recipe": "top_n_per_group",
+      "keys": [
+        "category"
+      ],
+      "value": "price",
+      "limit": 3
+    },
+    "sample": true
+  },
+  {
+    "q": "employees 부서(dept_id)마다 salary 상위 2명",
+    "code": "",
+    "expect": {
+      "recipe": "top_n_per_group",
+      "keys": [
+        "dept_id"
+      ],
+      "value": "salary",
+      "limit": 2
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 월별 매출 추이 보고 싶어요",
+    "code": "",
+    "expect": {
+      "recipe": "date_agg",
+      "dateCol": "order_ts",
+      "unit": "month",
+      "metrics": [
+        {
+          "agg": "sum",
+          "col": "total_amount"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "events 요일별 이벤트 건수",
+    "code": "",
+    "expect": {
+      "recipe": "date_agg",
+      "dateCol": "event_ts",
+      "unit": "dow",
+      "metrics": [
+        {
+          "agg": "count",
+          "col": null
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "분기별로 주문 수랑 매출 합계 같이 (orders)",
+    "code": "",
+    "expect": {
+      "recipe": "date_agg",
+      "dateCol": "order_ts",
+      "unit": "quarter",
+      "metrics": [
+        {
+          "agg": "count",
+          "col": null
+        },
+        {
+          "agg": "sum",
+          "col": "total_amount"
+        }
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "users 주별 가입자 수",
+    "code": "",
+    "expect": {
+      "recipe": "date_agg",
+      "dateCol": "signup_date",
+      "unit": "week"
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 일별 매출 누적합",
+    "code": "",
+    "expect": {
+      "recipe": "running_total",
+      "value": "total_amount",
+      "unit": "day",
+      "dateCol": "order_ts"
+    },
+    "sample": true
+  },
+  {
+    "q": "ab_test에서 assigned_date 순으로 revenue 누적 합계",
+    "code": "",
+    "expect": {
+      "recipe": "running_total",
+      "value": "revenue",
+      "orderCol": "assigned_date"
+    },
+    "sample": true
+  },
+  {
+    "q": "월별 매출 전월 대비 증감률 (orders)",
+    "code": "",
+    "expect": {
+      "recipe": "lag_diff",
+      "value": "total_amount",
+      "unit": "month"
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 일 매출이 전일 대비 얼마나 늘었는지",
+    "code": "",
+    "expect": {
+      "recipe": "lag_diff",
+      "value": "total_amount",
+      "unit": "day"
+    },
+    "sample": true
+  },
+  {
+    "q": "employees에서 부서별 salary 순위 매기기",
+    "code": "",
+    "expect": {
+      "recipe": "rank",
+      "value": "salary",
+      "keys": [
+        "dept_id"
+      ],
+      "order": "desc"
+    },
+    "sample": true
+  },
+  {
+    "q": "상품 가격 순위 매겨줘, 비싼 게 1등 (products)",
+    "code": "",
+    "expect": {
+      "recipe": "rank",
+      "value": "price",
+      "order": "desc"
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 결제수단별 매출 비중",
+    "code": "",
+    "expect": {
+      "recipe": "share",
+      "keys": [
+        "payment_method"
+      ],
+      "value": "total_amount"
+    },
+    "sample": true
+  },
+  {
+    "q": "order_items에서 product_id별 quantity 점유율 구해줘",
+    "code": "",
+    "expect": {
+      "recipe": "share",
+      "keys": [
+        "product_id"
+      ],
+      "value": "quantity"
+    },
+    "sample": true
+  },
+  {
+    "q": "ab_test variant별 전환율",
+    "code": "",
+    "expect": {
+      "recipe": "cond_rate",
+      "keys": [
+        "variant"
+      ]
+    },
+    "sample": true,
+    "note": "cond: converted = 1"
+  },
+  {
+    "q": "orders에서 payment_method별로 completed 비율이 어떻게 되나요",
+    "code": "",
+    "expect": {
+      "recipe": "cond_rate",
+      "keys": [
+        "payment_method"
+      ]
+    },
+    "sample": true,
+    "note": "cond: status = 'completed'"
+  },
+  {
+    "q": "orders total_amount를 5만, 10만, 30만 기준으로 구간 나눠서 건수 보기",
+    "code": "",
+    "expect": {
+      "recipe": "bucket",
+      "value": "total_amount",
+      "bins": [
+        50000,
+        100000,
+        300000
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "employees salary를 5000, 8000, 11000 구간으로 나누기",
+    "code": "",
+    "expect": {
+      "recipe": "bucket",
+      "value": "salary",
+      "bins": [
+        5000,
+        8000,
+        11000
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 일별 매출 7일 이동평균",
+    "code": "",
+    "expect": {
+      "recipe": "moving_avg",
+      "value": "total_amount",
+      "window": 7
+    },
+    "sample": true
+  },
+  {
+    "q": "ab_test revenue 3일 이동 평균 내줘",
+    "code": "",
+    "expect": {
+      "recipe": "moving_avg",
+      "value": "revenue",
+      "window": 3
+    },
+    "sample": true
+  },
+  {
+    "q": "orders coupon_code 결측치 몇 개야?",
+    "code": "",
+    "expect": {
+      "recipe": "null_handle",
+      "col": "coupon_code",
+      "mode": "count"
+    },
+    "sample": true
+  },
+  {
+    "q": "events에서 product_id 빈 값은 0으로 채워줘",
+    "code": "",
+    "expect": {
+      "recipe": "null_handle",
+      "col": "product_id",
+      "mode": "fill"
+    },
+    "sample": true
+  },
+  {
+    "q": "employees manager_id가 null인 행은 지워주세요",
+    "code": "",
+    "expect": {
+      "recipe": "null_handle",
+      "col": "manager_id",
+      "mode": "drop"
+    },
+    "sample": true
+  },
+  {
+    "q": "events에서 user_id, event_type 기준 중복 제거",
+    "code": "",
+    "expect": {
+      "recipe": "dedupe",
+      "cols": [
+        "user_id",
+        "event_type"
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "order_id 기준으로 orders 중복된 행 있으면 없애줘",
+    "code": "",
+    "expect": {
+      "recipe": "dedupe",
+      "cols": [
+        "order_id"
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "users country 종류 뭐뭐 있어?",
+    "code": "",
+    "expect": {
+      "recipe": "distinct",
+      "cols": [
+        "country"
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "events platform이랑 app_version 고유한 조합 목록",
+    "code": "",
+    "expect": {
+      "recipe": "distinct",
+      "cols": [
+        "platform",
+        "app_version"
+      ]
+    },
+    "sample": true
+  },
+  {
+    "q": "orders랑 users를 user_id로 합치기",
+    "code": "",
+    "expect": {
+      "recipe": "join",
+      "right": "users",
+      "key": "user_id"
+    },
+    "sample": true
+  },
+  {
+    "q": "employees와 departments inner join 해서 부서명 붙이기",
+    "code": "",
+    "expect": {
+      "recipe": "join",
+      "right": "departments",
+      "key": "dept_id",
+      "how": "inner"
+    },
+    "sample": true
+  },
+  {
+    "q": "orders 피벗: 행은 payment_method, 열은 status, 값은 매출 합계",
+    "code": "",
+    "expect": {
+      "recipe": "pivot",
+      "index": "payment_method",
+      "columns": "status",
+      "value": "total_amount"
+    },
+    "sample": true
+  },
+  {
+    "q": "users에서 channel별 가입자 수를 device 기준으로 가로로 펼쳐줘",
+    "code": "",
+    "expect": {
+      "recipe": "pivot",
+      "index": "channel",
+      "columns": "device"
+    },
+    "sample": true
+  },
+  {
+    "q": "윈도우 함수가 뭔가요?",
+    "code": "",
+    "expect": {
+      "recipe": "none"
+    },
+    "sample": false
+  },
+  {
+    "q": "LEFT JOIN이랑 INNER JOIN 차이 설명해줘",
+    "code": "",
+    "expect": {
+      "recipe": "none"
+    },
+    "sample": false,
+    "note": "concept question; mentions join"
+  },
+  {
+    "q": "SQL에서 GROUP BY랑 HAVING 차이가 뭐예요",
+    "code": "",
+    "expect": {
+      "recipe": "none"
+    },
+    "sample": false,
+    "note": "concept question"
+  },
+  {
+    "q": "pandas 설치 어떻게 해요?",
+    "code": "",
+    "expect": {
+      "recipe": "none"
+    },
+    "sample": false
+  },
+  {
+    "q": "matplotlib으로 막대그래프 그리는 법 알려줘",
+    "code": "",
+    "expect": {
+      "recipe": "none"
+    },
+    "sample": false
+  },
+  {
+    "q": "로지스틱 회귀 모델 학습시키는 코드 짜줘",
+    "code": "",
+    "expect": {
+      "recipe": "none"
+    },
+    "sample": false
+  },
+  {
+    "q": "오늘 점심 뭐 먹을까",
+    "code": "",
+    "expect": {
+      "recipe": "none"
+    },
+    "sample": false
+  }
+]

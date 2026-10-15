@@ -8,6 +8,8 @@
 | **면접 Q&A** | 2026년 기준 공통 면접 질문 60개 (SQL · pandas · 통계 · A/B 테스트 · 지표/프로덕트 · Spark/Databricks · ML 기초 · 행동). 질문마다 모범 답변, 면접관 의도, 핵심 포인트, 흔한 실수(→ 이렇게 하세요), 꼬리 질문(→ 짧은 답) 포함 |
 | **플레이그라운드** | 브라우저 안의 DuckDB(SQL)와 Pyodide(pandas). 샘플 이커머스 DB 8개 테이블, CSV 업로드, SQL 결과를 pandas로 넘기기, Databricks 함수 호환(`datediff`, `date_format`, `nvl`, `collect_list` 등) |
 | **문제은행** | SQL 20문제 + pandas 12문제 **자동 채점**. 문제마다 SQL 풀이와 pandas 풀이를 함께 제공 |
+| **문법 레퍼런스** | SQL 50개 · pandas 52개 항목을 Docs 형식으로 (자주 쓰는 문법 + Appendix). 항목마다 설명, 문법, 바로 실행되는 예제, 주의할 점 |
+| **질문하기** | "si_do_name별 sales_qty 합"처럼 물으면 **정해진 문법(레시피 18가지)** 안에서 SQL·pandas 코드로 답변. 붙여 넣은 코드의 테이블·컬럼 이름을 사용하고, 해석(컬럼·집계·단위)을 화면에서 고칠 수 있음. 브라우저 안의 규칙 엔진이라 **서버·API 비용 없음** |
 | **모의 면접** (A) | 무작위 출제, 타이머, 핵심 포인트로 자기 채점, 약한 질문 우선 출제, 카테고리별 기록 |
 | **A/B 테스트** (B) | 표본 크기 계산기, 비율·평균 결과 분석, SRM 검사, 피킹·p-value 분포·중심극한정리 시뮬레이터 |
 | **케이스 트레이닝** (C) | 프로덕트 케이스 7개 (DAU 하락, 지표 설계, 실험 해석, 인과 추론 등) 단계별 모범 답안 + 샘플 데이터로 검증 |
@@ -96,6 +98,7 @@ web/                      정적 웹 앱 (빌드 과정 없음)
   assets/js/editor.js     CodeMirror 에디터 (단축키, 자동 완성 연결)
   assets/js/completion.js 문맥 인식 자동 완성 + 점수 순위
   assets/js/enhance.js    코드 블록 도구, 단축키 도움말, 퀴즈 키보드
+  assets/js/ask/*.js      질문하기 엔진: 코드에서 컬럼 추출, 규칙 기반 의도·빈칸 해석, 레시피별 SQL/pandas 템플릿
   assets/js/views/*.js    탭별 화면
   assets/js/data/*.js     콘텐츠: 면접 질문, 문제, 케이스, Databricks 자료
   assets/py/runtime.py    브라우저 pandas 실행·채점 런타임 (CPython에서도 테스트)
@@ -116,7 +119,10 @@ pip install duckdb "pandas==2.3.3" scipy
 python tests/validate_content.py   # 모든 정답 실행 + SQL/pandas 풀이 결과 일치 + 링크 무결성
 python tests/test_stats.py         # stats.js 계산값을 scipy와 비교
 node tests/test_completion.mjs     # 자동 완성 순위
+node tests/test_ask.mjs            # 질문하기 정확도 (엔진과 따로 작성한 질문 세트 tests/ask_cases.json)
 ```
+
+질문하기에 레시피를 추가하려면 `web/assets/js/ask/recipes.js`에 템플릿을, `engine.js`의 `scoreRecipes`에 판단 규칙을 넣고 `tests/ask_cases.json`에 질문을 추가하세요. `validate_content.py`가 샘플 테이블 질문에 대해 생성된 SQL·pandas 코드를 실제로 실행해 봅니다.
 
 PR마다 GitHub Actions(`.github/workflows/ci.yml`)에서 같은 검증이 실행됩니다.
 

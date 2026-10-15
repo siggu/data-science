@@ -568,3 +568,32 @@ label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; 
   :root:not([data-theme="light"]) .tok-num, :root:not([data-theme="light"]) .tok-const { color: #f0b46a; }
   :root:not([data-theme="light"]) .tok-id, :root:not([data-theme="light"]) .tok-attr { color: #5fc8dc; }
 }
+
+/* ===== 질문하기 ===== */
+textarea.mono { font-family: var(--mono); font-size: .84rem; }
+.ask-wrap { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.ask-thread { display: flex; flex-direction: column; gap: 18px; }
+.ask-entry { display: flex; flex-direction: column; gap: 8px; }
+.ask-q { align-self: flex-end; max-width: min(640px, 92%); background: var(--accent-soft); border-radius: 14px 14px 4px 14px; padding: 9px 14px; }
+.ask-q-text { white-space: pre-wrap; font-weight: 500; }
+.ask-q-code summary { cursor: pointer; font-size: .78rem; color: var(--text-2); margin-top: 4px; }
+.ask-q-code pre { margin: 6px 0 0; max-height: 180px; overflow: auto; font-size: .78rem; background: var(--surface); }
+.ask-a { border-radius: 4px 14px 14px 14px; }
+.ask-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.ask-head .badge { flex: none; }
+.ask-interp { margin-top: 8px; padding: 6px 10px; background: var(--surface-2); border-radius: 8px; }
+.ask-edit { margin-top: 8px; }
+.ask-edit > summary { cursor: pointer; font-size: .84rem; color: var(--accent); font-weight: 600; }
+.ask-a pre { margin: 8px 0 0; }
+.ask-refs, .ask-alts { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ask-refs .chip, .ask-alts .chip { font-size: .78rem; white-space: normal; max-width: 100%; text-align: left; }
+.ask-ref-list ul { margin: 4px 0 0; }
+.ask-composer { display: flex; flex-direction: column; gap: 10px; border-color: var(--accent); }
+.ask-composer textarea { width: 100%; }
+.ask-code > summary { cursor: pointer; font-size: .86rem; color: var(--text-2); font-weight: 500; }
+.ask-code textarea { margin-top: 6px; }
+.ask-examples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ask-examples .chip { font-size: .78rem; }
+@media (max-width: 600px) {
+  .ask-q { max-width: 100%; }
+}
