@@ -99,7 +99,8 @@ export default {
     const answer = h('div', { class: 'card ask-a' });
     // 저장된 수정 내용(다른 해석 선택, 빈칸 수정)이 있으면 그것으로
     let current = entry.recipe ? { recipe: entry.recipe, slots: entry.slots } : info.best;
-    const paint = () => answer.replaceChildren(...this.answerBody(info, current, (next) => { current = next; this.save(idx, next); paint(); }));
+    // (replaceChildren 은 null 을 "null" 글자로 넣으므로 빈 항목은 걸러냄)
+    const paint = () => answer.replaceChildren(...this.answerBody(info, current, (next) => { current = next; this.save(idx, next); paint(); }).filter(Boolean));
     paint();
     return h('div', { class: 'ask-entry' }, userBubble, answer);
   },

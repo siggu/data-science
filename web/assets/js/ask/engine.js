@@ -56,7 +56,8 @@ function makeResolver(ctx, assumptions) {
     }
     if (!/[가-힣]/.test(w) || STOP_KO.has(w) || DATE_UNIT_WORDS.test(w)) return null;
     for (const [re, frags] of SYNONYMS) {
-      if (!re.test(w)) continue;
+      // 단어 앞부분이 일치할 때만 (매출액 → 매출 O, 남기기 → 기기 X)
+      if (!new RegExp(`^(?:${re.source})`, re.flags).test(w)) continue;
       const pool = prefer ? ctx.columns.filter((c) => prefer.test(c)) : [];
       for (const f of frags) {
         const hit = [...pool, ...ctx.columns].find((c) => c.toLowerCase() === f) || [...pool, ...ctx.columns].find((c) => c.toLowerCase().includes(f));
@@ -74,7 +75,7 @@ function makeResolver(ctx, assumptions) {
 
 /** "A와 B별", "A, B 기준" 덩어리에서 단어 목록 */
 function splitKeys(chunk) {
-  return chunk.split(/\s*(?:,|\/|및|and)\s*|(?<=[\w가-힣])(?:와|과|하고)\s+|\s+/).map((s) => s.trim()).filter(Boolean);
+  return chunk.split(/\s*(?:,|\/|및|and|×|\bx\b|\*)\s*|(?<=[\w가-힣])(?:와|과|하고)\s+|\s+/).map((s) => s.trim()).filter((s) => s && !/^(조합|그룹|단위)$/.test(s));
 }
 
 /** 앞쪽 텍스트에서 마지막 단어 (조사 제거) */
@@ -113,9 +114,19 @@ function parseFilters(q, resolve, ctx) {
     if (!col) continue;
     out.push({ col, op: { '==': '=', '<>': '!=' }[m[2]] || m[2], value: val(m[3]) });
   }
-  for (const m of q.matchAll(/([A-Za-z_]\w*|[가-힣]+?)\s*(?:이|가|은|는|의\s*값이)?\s*(-?\d[\d,]*(?:\.\d+)?)\s*(만|천|억)?\s*(?:원|개|건|명|회|번)?\s*(이상|초과|이하|미만|넘는|넘은|넘게|넘어가는|보다\s*(?:큰|많은|작은|적은))/g)) {
-    const op = { 이상: '>=', 초과: '>', 이하: '<=', 미만: '<' }[m[4]] || (/큰|많은|넘/.test(m[4]) ? '>' : '<');
-    if (AGG_WORD.test(stripP(m[1]))) { out.push({ col: null, op, value: koNumber(m[2], m[3]), _agg: true }); continue; }
+  // 숫자 범위: delivery_min 30~60분 사이
+  for (const m of q.matchAll(/([A-Za-z_]\w*|[가-힣]+?)\s*(?:이|가|은|는)?\s*(-?\d[\d,]*(?:\.\d+)?)\s*(?:~|-|에서|부터)\s*(-?\d[\d,]*(?:\.\d+)?)\s*(?:분|원|개|건|일|세|초|시간|까지)?\s*(?:사이|이내|범위|인)/g)) {
+    const col = resolve(m[1], { prefer: NUM_COL });
+    if (col) out.push({ col, op: 'between', value: koNumber(m[2]), value2: koNumber(m[3]) });
+  }
+  for (const m of q.matchAll(/([A-Za-z_]\w*|[가-힣]+?)\s*(?:이|가|은|는|의\s*값이)?\s*(-?\d[\d,]*(?:\.\d+)?)\s*(만|천|억)?\s*(원|개|건|명|회|번)?\s*(이상|초과|이하|미만|넘는|넘은|넘게|넘어가는|보다\s*(?:큰|많은|작은|적은))/g)) {
+    const op = { 이상: '>=', 초과: '>', 이하: '<=', 미만: '<' }[m[5]] || (/큰|많은|넘/.test(m[5]) ? '>' : '<');
+    const value = koNumber(m[2], m[3]);
+    if (AGG_WORD.test(stripP(m[1]))) { out.push({ col: null, op, value, _agg: true }); continue; }
+    // "평균 급여가 10000 이상" → 집계값 조건, "주문 5건 넘게 한 유저" → 건수 조건
+    const aggBefore = q.slice(0, m.index).match(/(합계|총합|평균|최대|최소|중앙값)\s*$/);
+    if (aggBefore) { out.push({ col: resolve(m[1], { prefer: NUM_COL }), op, value, _agg: true, _aggType: { 합계: 'sum', 총합: 'sum', 평균: 'mean', 최대: 'max', 최소: 'min', 중앙값: 'median' }[aggBefore[1]] }); continue; }
+    if (/^(건|회|번)$/.test(m[4] || '') && /^(주문|구매|결제|방문|접속|로그인|이벤트)/.test(stripP(m[1]))) { out.push({ col: null, op, value, _agg: true, _aggType: 'count' }); continue; }
     const col = resolve(m[1], { prefer: NUM_COL });
     if (!col) continue;
     out.push({ col, op, value: koNumber(m[2], m[3]) });
@@ -149,7 +160,7 @@ function features(q, ctx, resolve, assumptions) {
   const qm = maskIdents(q);
   // 그룹 기준
   const keys = [];
-  for (const m of q.matchAll(/((?:[A-Za-z_]\w*|[가-힣]+)(?:\s*(?:,|\/|및|and|와|과)\s*(?:[A-Za-z_]\w*|[가-힣]+))*)\s*(?:별로|별|마다|기준으로|기준|단위로|에\s*따른|당|안에서|내에서|그룹\s*내에서|그룹\s*안에서)(?![가-힣])/g)) {
+  for (const m of q.matchAll(/((?:[A-Za-z_]\w*|[가-힣]+)(?:\s*(?:,|\/|및|and|와|과|×|\bx\b)\s*(?:[A-Za-z_]\w*|[가-힣]+))*)\s*(?:조합\s*)?(?:별로|별|마다|기준으로|기준|단위로|에\s*따른|당|안에서|내에서|그룹\s*내에서|그룹\s*안에서)(?![가-힣])/g)) {
     // "amount 기준 내림차순 정렬" 의 기준은 정렬 기준이지 그룹이 아님
     if (/^\s*(?:으로|로)?\s*(?:내림차순|오름차순|정렬|높은\s*순|낮은\s*순|큰\s*순|작은\s*순|sort)/.test(q.slice(m.index + m[0].length)) && /기준/.test(m[0])) continue;
     for (const w of splitKeys(m[1])) {
@@ -212,10 +223,12 @@ function features(q, ctx, resolve, assumptions) {
 
   // 날짜 단위
   f.unit = (DATE_UNITS.find(([, re]) => re.test(qm)) || [])[0] || null;
-  // "전월 대비" → 월, "전일 대비" → 일 …
-  if (!f.unit) { const pu = q.match(/(전월|지난\s*달|전일|어제|전주|지난\s*주|전년|작년|전분기)/); if (pu) f.unit = { 전월: 'month', 전일: 'day', 어제: 'day', 전주: 'week', 전년: 'year', 작년: 'year', 전분기: 'quarter' }[pu[1].replace(/\s/g, '')] || (/달/.test(pu[1]) ? 'month' : 'week'); }
-  const dateMention = q.match(/([가-힣]*(?:일|날짜|일자|시각|일시)|[A-Za-z_]\w*(?:date|_dt|_ts|_at)\w*)\s*(?:기준|으로|로)/i);
+  // "전월 대비" → 월, "전일 대비"·"하루 … 전날보다" → 일 …
+  if (!f.unit) { const pu = q.match(/(전월|지난\s*달|전일|전날|어제|하루|전주|지난\s*주|전년|작년|전분기)/); if (pu) f.unit = { 전월: 'month', 전일: 'day', 전날: 'day', 어제: 'day', 하루: 'day', 전주: 'week', 전년: 'year', 작년: 'year', 전분기: 'quarter' }[pu[1].replace(/\s/g, '')] || (/달/.test(pu[1]) ? 'month' : 'week'); }
+  const dateMention = q.match(/([가-힣]*(?:일|날짜|일자|시각|일시)|[A-Za-z_]\w*(?:date|_dt|_ts|_at|ymd)\w*)\s*(?:기준|으로|로)/i);
   f.dateCol = (dateMention && resolve(dateMention[1])) || ctx.columns.find((c) => DATE_COL.test(c)) || ctx.identCols.find((c) => DATE_COL.test(c)) || null;
+  // 날짜 단위가 있으면 날짜 컬럼은 그룹 기준이 아님 ("signup_date 기준 주간 추이")
+  if (f.unit) f.keys = f.keys.filter((k) => k !== f.dateCol && !DATE_COL.test(k));
 
   // 상위/하위 N
   const nm = q.match(/(?:상위|하위|top|bottom|최근)\s*(\d+)/i) || q.match(/(\d+)\s*(?:개|위|명|건|곳|등|가지)(?!\s*(?:이상|이하|초과|미만))/);
@@ -233,14 +246,15 @@ function features(q, ctx, resolve, assumptions) {
 
   f.filters = parseFilters(q, resolve, ctx);
   f.having = f.filters.find((x) => x._agg) || null;
-  if (f.having && !f.having.col) f.having.col = f.metrics.find((m) => m.col)?.col || null;
-  // "합계가 50만 이상인 유저", "3건 넘는 user_id" → 뒤의 대상이 그룹 기준
+  if (f.having && !f.having.col && f.having._aggType !== 'count') f.having.col = f.metrics.find((m) => m.col)?.col || null;
+  if (f.having?._aggType) f.havingMetric = { agg: f.having._aggType, col: f.having._aggType === 'count' ? null : f.having.col };
+  // "합계가 50만 이상인 유저", "3건 넘는 user_id", "5건 넘게 한 유저" → 뒤의 대상이 그룹 기준
   if (f.having && !f.keys.length) {
-    const em = q.match(/(?:이상|이하|초과|미만|넘는|넘은|넘게)\s*(?:인\s*)?([A-Za-z_]\w*|[가-힣]{2,})/);
+    const em = q.match(/(?:이상|이하|초과|미만|넘는|넘은|넘게)\s*(?:인|한|된|산|구매한|주문한)?\s*([A-Za-z_]\w*|[가-힣]{2,})/);
     const k = em && resolve(em[1], { prefer: KEY_COL });
     if (k) f.keys = [k];
   }
-  f.filters = f.filters.filter((x) => !x._agg).map(({ _agg, ...x }) => x);
+  f.filters = f.filters.filter((x) => !x._agg).map(({ _agg, _aggType, ...x }) => x);
 
   // 이동평균 창, 구간 경계
   const wm = q.match(/최근\s*(\d+)\s*(?:일|개|주|행)/) || q.match(/(\d+)\s*(?:일|개|행)\s*이동/);
@@ -251,14 +265,14 @@ function features(q, ctx, resolve, assumptions) {
   // 조인
   const other = uniq([...ctx.tables.slice(1), ...ctx.mentionedSample.filter((t) => t !== ctx.tables[0])]);
   f.right = other[0] || null;
-  const km = q.match(/([A-Za-z_]\w*|[가-힣]+)\s*(?:으로|로|를\s*키로|기준으로|키로)\s*(?:(?:left|inner|outer|full|right|레프트|이너)\s*)?(?:조인|join|합치|붙이|merge|연결|매칭)/i)
+  const km = q.match(/([A-Za-z_]\w*|[가-힣]+)\s*(?:으로|로|를\s*키로|기준으로|키로)\s*(?:(?:left|inner|outer|full|right|레프트|이너)\s*)?(?:조인|join|합치|합쳐|붙이|붙여|merge|연결|매칭)/i)
     || q.match(/\bon\s+([A-Za-z_]\w*)/i);
   f.key = (km && resolve(km[1])) || ctx.columns.find((c) => KEY_COL.test(c) && (!f.right || (SAMPLE[f.right] || []).includes(c))) || null;
   f.how = /(inner|교집합|둘\s*다|공통|양쪽\s*모두\s*있)/i.test(q) ? 'inner' : /(full|outer|모두\s*남|전부\s*남|합집합)/i.test(q) ? 'outer' : 'left';
 
   // 피벗: "행은 A, 열은 B" / "B를 열로"
   const pr = q.match(/행(?:은|에)\s*([A-Za-z_]\w*|[가-힣]+).*?열(?:은|에)\s*([A-Za-z_]\w*|[가-힣]+)/);
-  const prRev = q.match(/([A-Za-z_]\w*|[가-힣]+?)\s*(?:을|를)?\s*(?:행으로|행에|인덱스로|index로).*?([A-Za-z_]\w*|[가-힣]+?)\s*(?:을|를)?\s*(?:열로|열에|컬럼으로|columns로)/);
+  const prRev = q.match(/([A-Za-z_]\w*|[가-힣]+?)\s*(?:을|를)?\s*(?:행으로|행에|행(?=\s*[,·])|인덱스로|index로).*?([A-Za-z_]\w*|[가-힣]+?)\s*(?:을|를)?\s*(?:열로|열에|컬럼으로|columns로)/);
   const pc = q.match(/([A-Za-z_]\w*|[가-힣]+?)\s*(?:을|를|값을)?\s*(?:열로|컬럼으로|가로로)/);
   f.pivotIndex = pr ? resolve(pr[1]) : prRev ? resolve(prRev[1]) : null;
   f.pivotCols = pr ? resolve(pr[2]) : prRev ? resolve(prRev[2]) : (pc ? resolve(pc[1]) : null);
@@ -287,8 +301,10 @@ function scoreRecipes(q, f, ctx, resolve) {
   const out = [];
   const add = (id, score, slots) => out.push({ recipe: id, score, slots: { filters: f.filters, ...slots } });
 
-  if (f.unit && (metrics || has(c.count_rows)) && !has(c.running) && !has(c.lag) && !has(c.moving)) {
-    add('date_agg', 4.5, { dateCol: f.dateCol || 'date', unit: f.unit, metrics: metrics || [{ agg: 'count', col: null }], keys: f.keys });
+  // 기간별 집계: 집계어가 없어도 "주간 가입자 추이", "월별 주문 현황"이면 행 수로 셈
+  const trend = /(추이|트렌드|trend|현황|흐름|변화)/i.test(q) || has(c.count_rows) || /(가입자|건수|접속자|방문자)/.test(q);
+  if (f.unit && (metrics || trend) && !has(c.running) && !has(c.lag) && !has(c.moving)) {
+    add('date_agg', metrics ? 4.5 : 4.0, { dateCol: f.dateCol || 'date', unit: f.unit, metrics: metrics || [{ agg: 'count', col: null }], keys: f.keys });
   }
   if (has(c.moving)) add('moving_avg', 5, { orderCol: orderCol || 'date', value: valueCol || 'value', window: f.window || 7, unit: f.unit || (/최근\s*\d+\s*일|\d+\s*일\s*이동/.test(q) ? 'day' : null), dateCol: f.dateCol || orderCol || 'date', keys: f.keys, metrics: f.metrics.filter((m) => m.agg !== 'mean') });
   if (has(c.running)) add('running_total', 5, { orderCol: orderCol || 'date', value: valueCol || 'value', keys: f.unit ? [] : f.keys, unit: f.unit, dateCol: f.dateCol || orderCol || 'date', metrics: f.metrics.length ? f.metrics : null });
@@ -326,7 +342,10 @@ function scoreRecipes(q, f, ctx, resolve) {
     const explicitAgg = f.metrics.length && !f.implicit;
     add('top_n_per_group', f.item || f.each ? 4.8 : explicitAgg ? 3.6 : 4.4, { keys: f.keys, item: f.item, value: valueCol || 'value', agg: f.metrics[0]?.agg || 'sum', limit: f.n || 3 });
   }
-  if (f.keys.length && f.having) add('having', 4.9, { keys: f.keys, metrics: metrics || [{ agg: 'sum', col: f.having.col }], having: { op: f.having.op, value: f.having.value } });
+  if (f.keys.length && f.having) {
+    const hm = f.havingMetric ? [f.havingMetric] : (metrics && !f.implicit ? metrics : [{ agg: 'sum', col: f.having.col || valueCol || 'value' }]);
+    add('having', 4.9, { keys: f.keys, metrics: hm, having: { op: f.having.op, value: f.having.value } });
+  }
   if (f.keys.length) {
     const s = metrics ? 4.2 : (has(c.count_rows) ? 3.2 : 2.2);
     add('group_agg', s, { keys: f.keys, metrics: metrics || [{ agg: 'count', col: null }], order: f.top || f.bottom ? f.order : null, limit: f.n });
@@ -336,7 +355,12 @@ function scoreRecipes(q, f, ctx, resolve) {
     if ((f.top || f.bottom) && f.item) add('group_agg', 3.8, { keys: [f.item], metrics, order: f.order, limit: f.n || 5 });
     add('total_agg', 3.4, { metrics });
   }
-  if ((f.top || f.bottom || has(c.sort)) && !f.keys.length) add('sort_limit', f.item && metrics ? 3 : 3.5, { value: valueCol || 'value', order: f.order || 'desc', limit: f.n });
+  // "최근에 입사한 순서대로 3명" → 날짜 컬럼 기준 정렬
+  const recency = /(최근|최신|늦게|오래된|예전|먼저)\s*\S*\s*(순|순서|부터)/.test(q) || /(최근|최신)에?\s*[가-힣]*(한|된|온)\s*(순|순서)/.test(q);
+  if ((f.top || f.bottom || has(c.sort) || recency) && !f.keys.length) {
+    const byDate = recency && orderCol;
+    add('sort_limit', f.item && metrics && !f.implicit ? 3 : 3.5, { value: byDate ? orderCol : (valueCol || 'value'), order: byDate ? (/(오래된|예전|먼저)/.test(q) ? 'asc' : 'desc') : (f.order || 'desc'), limit: f.n });
+  }
   if (has(c.distinct) && (!f.metrics.length || f.implicit)) {
     const combo = /(조합|쌍|pair)/i.test(q);
     add('distinct', 4.2, { cols: combo ? f.mentioned.slice(0, 3) : (f.mentioned.length ? [f.mentioned[0]] : []) });

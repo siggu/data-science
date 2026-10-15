@@ -6,15 +6,18 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { understand, build } from '../web/assets/js/ask/engine.js';
 
-if (!existsSync(new URL('./ask_cases.json', import.meta.url))) {
-  console.log(process.argv.includes('--emit') ? '[]' : 'tests/ask_cases.json 없음 — 건너뜀');
+// --file=ask_cases_fresh.json 으로 다른 질문 세트를 측정할 수 있음
+const fileArg = (process.argv.find((a) => a.startsWith('--file=')) || '--file=ask_cases.json').slice(7);
+const casesUrl = new URL(`./${fileArg}`, import.meta.url);
+if (!existsSync(casesUrl)) {
+  console.log(process.argv.includes('--emit') ? '[]' : `tests/${fileArg} 없음 — 건너뜀`);
   process.exit(0);
 }
 
 const MIN_RECIPE_ACC = 0.85; // 레시피(의도) 정확도
 const MIN_FULL_ACC = 0.7; // 레시피 + 빈칸까지 모두 맞은 비율
 
-const cases = JSON.parse(readFileSync(new URL('./ask_cases.json', import.meta.url), 'utf8'));
+const cases = JSON.parse(readFileSync(casesUrl, 'utf8'));
 const norm = (v) => (v == null ? null : String(v).toLowerCase());
 const sameSet = (a = [], b = []) => a.length === b.length && a.every((x) => b.map(norm).includes(norm(x)));
 
@@ -24,7 +27,9 @@ function slotOk(key, exp, act) {
     return exp.every((m) => (act || []).some((x) => x.agg === m.agg && norm(x.col) === norm(m.col)));
   }
   if (Array.isArray(exp) && key === 'filters') {
-    return exp.every((f) => (act || []).some((x) => norm(x.col) === norm(f.col) && x.op === f.op && (f.value === undefined || norm(x.value) === norm(f.value))));
+    const valOk = (x, f) => f.value === undefined || f.value === null
+      || (Array.isArray(f.value) ? norm(x.value) === norm(f.value[0]) && norm(x.value2) === norm(f.value[1]) : norm(x.value) === norm(f.value));
+    return exp.every((f) => (act || []).some((x) => norm(x.col) === norm(f.col) && x.op === f.op && valOk(x, f)));
   }
   if (Array.isArray(exp) && key === 'bins') return sameSet(exp.map(Number).map(String), (act || []).map(String));
   if (Array.isArray(exp)) return sameSet(exp, act);

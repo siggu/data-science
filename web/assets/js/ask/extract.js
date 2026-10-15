@@ -83,15 +83,27 @@ function pyInfo(code) {
   return { tables: fr, columns: uniq(columns.filter((c) => c && !fr.includes(c))) };
 }
 
-/** CSV/탭 구분 헤더나 "컬럼: a, b, c" 형태의 목록 */
+/** CSV/탭 구분 헤더, "컬럼: a, b, c", df.columns / df.info() / df.head() 출력 */
 function headerInfo(code) {
-  const first = code.trim().split('\n')[0];
+  const lines = code.trim().split('\n');
+  const first = lines[0];
+  const out = [];
   if (/^[A-Za-z_][\w ]*([,\t|][A-Za-z_][\w ]*){1,}$/.test(first.trim())) {
-    return first.split(/[,\t|]/).map((s) => s.trim()).filter((s) => IDENT.test(s));
+    out.push(...first.split(/[,\t|]/).map((s) => s.trim()).filter((s) => IDENT.test(s)));
   }
   const m = code.match(/(?:컬럼|columns?|열)\s*[:：]\s*([^\n]+)/i);
-  if (m) return m[1].split(/[,\s]+/).map((s) => s.trim().replace(/[`'"]/g, '')).filter((s) => IDENT.test(s));
-  return [];
+  if (m) out.push(...m[1].split(/[,\s]+/).map((s) => s.trim().replace(/[`'"]/g, '')).filter((s) => IDENT.test(s)));
+  // df.columns → Index(['a', 'b'], dtype='object') / df.columns.tolist() → ['a', 'b'] (주석 속 출력 포함)
+  for (const im of code.matchAll(/Index\(\s*\[([^\]]*)\]/g)) for (const c of im[1].matchAll(/['"]([^'"]+)['"]/g)) out.push(c[1]);
+  for (const im of code.matchAll(/\[\s*(['"][A-Za-z_]\w*['"](?:\s*,\s*['"][A-Za-z_]\w*['"]){2,})\s*\]/g)) for (const c of im[1].matchAll(/['"]([^'"]+)['"]/g)) out.push(c[1]);
+  // df.info() → " 0   col_name   1000 non-null   int64"
+  for (const im of code.matchAll(/^\s*\d+\s+([A-Za-z_]\w*)\s+\d+\s+non-null/gm)) out.push(im[1]);
+  // df.head() 출력: 식별자만 공백으로 나열된 줄 다음에 숫자 인덱스로 시작하는 줄
+  lines.forEach((ln, i) => {
+    const t = ln.trim();
+    if (/^[A-Za-z_]\w*(\s+[A-Za-z_]\w*)+$/.test(t) && /^\s*\d+\s/.test(lines[i + 1] || '')) out.push(...t.split(/\s+/));
+  });
+  return out;
 }
 
 /** 질문 속 영문 단어 중 컬럼이 아닌 것 (SQL/pandas 용어, 집계어) */

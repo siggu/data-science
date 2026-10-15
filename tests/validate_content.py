@@ -223,9 +223,11 @@ def main() -> int:
     print(f"문법 레퍼런스 {n_ref}개 항목 · 예제 {n_ex}개 실행")
 
     # 질문하기: 샘플 테이블 질문에 대해 엔진이 만든 SQL/pandas 코드가 실제로 실행되는지
-    if (ROOT / "tests" / "ask_cases.json").exists():
-        emitted = json.loads(subprocess.run(["node", str(ROOT / "tests" / "test_ask.mjs"), "--emit"],
-                                            capture_output=True, text=True, check=True).stdout)
+    ask_files = [p.name for p in sorted((ROOT / "tests").glob("ask_cases*.json"))]
+    if ask_files:
+        emitted = [x for name in ask_files for x in json.loads(subprocess.run(
+            ["node", str(ROOT / "tests" / "test_ask.mjs"), "--emit", f"--file={name}"],
+            capture_output=True, text=True, check=True).stdout)]
         for item in emitted:
             try:
                 con.execute(item["sql"]).fetchall()
