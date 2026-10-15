@@ -5,10 +5,11 @@ export const AGG_CUES = [
   ['nunique', /(고유\s*(값\s*)?(개수|갯수|수)|유니크|중복\s*(없이|제외(하고|한)?|제거(하고|한)?)\s*(개수|갯수|수|센)|서로\s*다른\s*\S*\s*(개수|수)|\bdistinct\b|\bnunique\b|몇\s*(명|종류|가지))/i],
   ['median', /(중앙값|중간값|\bmedian\b)/i],
   ['mean', /(평균|\bmean\b|\bavg\b|\baverage\b)/i],
-  ['sum', /(합계|합산|총합|총액|총량|총\s*판매|합을|합이|합\b|합(?![가-힣])|더한|더해|\bsum\b|\btotal\b)/i],
+  // '합'은 앞에 다른 한글이 없을 때만 (조합·종합·누적합의 합 제외), '총'은 금액·수량 앞에서만
+  ['sum', /(합계|합산|총합|총액|총량|총\s*(?=매출|금액|판매|수량|결제|구매액|매출액)|(?<![가-힣])합(?:을|이)|(?<![가-힣])합(?![가-힣])|더한|더해|\bsum\b|\btotal\b)/i],
   ['max', /(최댓값|최대값|최대|\bmax\b)/i],
   ['min', /(최솟값|최소값|최소|\bmin\b)/i],
-  ['count', /(건수|개수|갯수|횟수|빈도|인원|명수|\bcount\b|몇\s*(개|건|번)|(?<![가-힣])수(?=[를가는도의\s,.?]|$))/i],
+  ['count', /(건수|개수|갯수|횟수|빈도|인원|명수|\bcount\b|몇\s*(개|건|번)|(?<![가-힣])수(?!\s*(?:있|없))(?=[를가는도의랑와과만\s,.?)]|하고|$))/i],
 ];
 
 export const AGG_LABEL = { sum: '합계', mean: '평균', count: '개수(행 수)', nunique: '고유값 개수', max: '최댓값', min: '최솟값', median: '중앙값' };
@@ -28,8 +29,8 @@ export const DATE_UNITS = [
 export const UNIT_LABEL = { dow: '요일', hour: '시간', day: '일', week: '주', month: '월', quarter: '분기', year: '연도' };
 
 export const CUES = {
-  top: /(상위|top\s*\d*|가장\s*(많|큰|높|비싼)|많이\s*(팔린|산|쓴|주문)|높은\s*순|큰\s*순|많은\s*순|내림차순|best|베스트)/i,
-  bottom: /(하위|bottom|가장\s*(적|작|낮|싼)|적은\s*순|작은\s*순|낮은\s*순|오름차순)/i,
+  top: /(상위|top\s*\d*|(가장|제일)\s*(많|큰|높|비싼)|많이\s*(팔린|산|쓴|주문)|높은\s*순|큰\s*순|많은\s*순|내림차순|best|베스트)/i,
+  bottom: /(하위|bottom|(가장|제일)\s*(적|작|낮|싼)|적은\s*순|작은\s*순|낮은\s*순|오름차순)/i,
   sort: /(정렬|sort|order\s*by|순서대로|순으로)/i,
   join: /(조인|join|merge|합치|합쳐|붙이|붙여|연결해|매칭|두\s*테이블|vlookup)/i,
   pivot: /(피벗|pivot|가로로|열로\s*(펼|만들|바꿔)|크로스\s*탭|crosstab|행은.*열은)/i,
@@ -42,9 +43,9 @@ export const CUES = {
   moving: /(이동\s*평균|이동\s*합|rolling|moving\s*average|최근\s*\d+\s*(일|개|주|행)\s*(평균|합))/i,
   null: /(결측|null|nan|na\b|비어\s*있|빈\s*값|빈\s*칸|누락|missing|none\s*값)/i,
   fill: /(채우|채워|대체|fillna|coalesce|바꿔|0으로)/i,
-  drop: /(제거|삭제|빼고|지우|drop|제외)/i,
+  drop: /(제거|삭제|빼고|지우|지워|없애|drop|제외)/i,
   dedupe: /(중복)/i,
-  distinct: /(고유값|고유한\s*값|유니크|unique|distinct|종류|어떤\s*값들?|값\s*목록|목록을?\s*(보|뽑))/i,
+  distinct: /(고유값|고유한\s*(값|조합)|조합\s*목록|유니크|unique|distinct|종류|어떤\s*값들?|값\s*목록|목록을?\s*(보|뽑))/i,
   filter: /(인\s*(것|행|데이터|건|주문|유저|고객)|만\s*(보|뽑|골라|추출|필터|남)|필터|조건|where|이상|이하|초과|미만|보다\s*(큰|작은|많은|적은)|포함|들어간|제외|아닌)/i,
   count_rows: /(몇\s*(개|건|행)|행\s*(수|개수)|레코드\s*수|row\s*count)/i,
 };

@@ -94,12 +94,15 @@ function headerInfo(code) {
   return [];
 }
 
+/** 질문 속 영문 단어 중 컬럼이 아닌 것 (SQL/pandas 용어, 집계어) */
+export const RESERVED_WORD = /^(sql|pandas|df|top|bottom|sum|avg|count|max|min|mean|median|total|by|and|or|the|of|in|on|to|is|vs|group|order|join|left|right|inner|outer|full|cross|union|select|where|having|case|when|null|nan|distinct|unique|window|over|partition|rank|lag|lead|pivot|merge|groupby|apply|python|csv|sort|limit|desc|asc|cte|with|ddl|dml|row|rows|table|column|columns|code|query|data|list|best|rate|ratio|share)$/i;
+
 /** 질문 문장 속 영문 식별자 (si_do_name, sales_qty …) — 컬럼일 가능성이 높음 */
 export function questionIdents(question) {
   const out = [];
   for (const m of question.matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)) {
     const w = m[0];
-    if (w.length < 2 || /^(sql|pandas|df|top|sum|avg|count|max|min|mean|by|and|or|the|of|in|group|order|join|select|where|python|csv|id)$/i.test(w)) continue;
+    if (w.length < 2 || RESERVED_WORD.test(w) || /^id$/i.test(w)) continue;
     out.push({ word: w, index: m.index });
   }
   return out;

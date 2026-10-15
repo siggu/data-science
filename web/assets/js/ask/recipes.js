@@ -216,7 +216,7 @@ export const RECIPES = [
       const desc = s.order !== 'asc';
       const sql = `SELECT *,\n       DENSE_RANK() OVER (${keys.length ? `PARTITION BY ${keys.map(qi).join(', ')} ` : ''}ORDER BY ${qi(s.value)} ${desc ? 'DESC' : 'ASC'}) AS rnk\nFROM ${ctx.table}${sqlWhere(s.filters)}\nORDER BY ${keys.length ? `${keys.map(qi).join(', ')}, ` : ''}rnk`;
       const g = keys.length ? `result.groupby(${keyArg(keys)})[${ps(s.value)}]` : `result[${ps(s.value)}]`;
-      const pd = `result = ${pdSource(ctx.df, s.filters)}.copy()\nresult['rnk'] = ${g}.rank(method='dense', ascending=${desc ? 'False' : 'True'}).astype(int)\nresult = result.sort_values(${list([...keys, 'rnk'])})\nresult`;
+      const pd = `result = ${pdSource(ctx.df, s.filters)}.copy()\nresult['rnk'] = ${g}.rank(method='dense', ascending=${desc ? 'False' : 'True'}).astype('Int64')\nresult = result.sort_values(${list([...keys, 'rnk'])})\nresult`;
       return { sql, pandas: pd, notes: ['동점 처리: DENSE_RANK(1,2,2,3) / RANK(1,2,2,4) / ROW_NUMBER(1,2,3,4) 중 목적에 맞게 고르세요. pandas는 `method=` 로 같은 선택을 합니다.'] };
     },
   },
