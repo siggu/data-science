@@ -18,7 +18,8 @@ const SYNONYMS = [
   [/(전월|전일|전날|전주|대비|증감|증가율|이전)/, ['lag', 'shift', 'pct_change', 'diff']],
   [/(이동\s*평균|롤링|rolling)/, ['rolling', 'rows between']],
   [/(비중|점유율|비율|전환율|퍼센트|%)/, ['ratio', 'over', 'transform', 'conditional']],
-  [/(조인|join|합치|붙이|붙여|merge|연결)/, ['join', 'merge']],
+  [/(조인|join|merge|(두|여러|다른)\s*테이블|테이블.*(합치|합쳐|붙|연결))/i, ['join', 'merge']],
+  [/((문자|글자|단위|텍스트).*(붙|이어|합치|합쳐|연결)|(붙|이어|합치|합쳐).*(문자|글자|단위|텍스트)|접두|접미|문자열\s*(연결|합)|concat|\|\|)/i, ['concat', 'string', 'str.', 'astype']],
   [/(피벗|pivot|가로로|옆으로\s*펼|열로)/, ['pivot', 'pivot_table', 'crosstab']],
   [/(결측|null|nan|비어|빠진\s*값|누락)/, ['null', 'coalesce', 'isna', 'fillna', 'dropna']],
   [/(중복|겹치)/, ['distinct', 'drop_duplicates', 'duplicated', 'row_number']],
@@ -30,7 +31,7 @@ const SYNONYMS = [
   [/(서브쿼리|하위\s*쿼리|cte|with)/i, ['subquery', 'cte', 'with']],
   [/(윈도우|over|partition)/i, ['window', 'over', 'partition']],
   [/(케이스|조건\s*분기|라벨|case)/i, ['case when', 'np.where', 'np.select']],
-  [/(합집합|union|이어\s*붙)/i, ['union', 'concat']],
+  [/(합집합|union|위아래로|(행|테이블).*이어\s*붙)/i, ['union', 'concat']],
 ];
 // 의도가 분명한 표현 → 꼭 보여줄 레퍼런스 항목 (가산점)
 const BOOSTS = [
@@ -38,7 +39,8 @@ const BOOSTS = [
   [/(별|마다|기준으로|안에서).*(상위|하위|top|가장|제일|\d+\s*(개|명|건)\s*씩)/i, ['sql:ranking', 'sql:qualify', 'pandas:nlargest', 'pandas:rank']],
   [/(순위|랭킹|등수)/, ['sql:ranking', 'pandas:rank']],
   [/(피벗|pivot|가로로|옆으로\s*펼|열로\s*펼)/i, ['sql:pivot', 'pandas:pivot-table']],
-  [/(조인|join|합치|붙이|붙여|merge)/i, ['sql:left-join', 'sql:inner-join', 'pandas:merge']],
+  [/(조인|join|merge|(두|여러|다른)\s*테이블|테이블.*(합치|합쳐|붙|연결))/i, ['sql:left-join', 'sql:inner-join', 'pandas:merge']],
+  [/((문자|글자|단위|텍스트).*(붙|이어|합치|합쳐|연결)|(붙|이어|합치|합쳐).*(문자|글자|단위|텍스트)|접두|접미|문자열\s*(연결|합)|concat|\|\|)/i, ['sql:string-funcs', 'pandas:str-accessor', 'pandas:formatting']],
   [/(누적)/, ['sql:running-moving', 'pandas:cumulative']],
   [/(이동\s*평균|롤링|rolling)/i, ['sql:running-moving', 'pandas:rolling']],
   [/(전월|전일|전날|전주|전년|대비|증감)/, ['sql:lag-lead', 'pandas:shift-diff']],
@@ -58,6 +60,7 @@ const items = REF_LANGS.flatMap((L) => L.items.map((it) => ({
 })));
 
 // 샘플 테이블·컬럼 이름은 문법과 상관없으므로 검색어에서 뺌 (orders, status 가 예제에 많이 나와 엉뚱한 항목이 오르는 것 방지)
+const TABLE_NAMES = new Set(TABLES.map((t) => t.name.toLowerCase()));
 const SCHEMA_WORDS = new Set(TABLES.flatMap((t) => [t.name, ...t.columns]).map((w) => w.toLowerCase()));
 
 /**
@@ -75,13 +78,17 @@ export function queryTerms(question, exclude = []) {
 }
 
 /**
- * 관련 레퍼런스 상위 k개 (언어별)
+ * 관련 레퍼런스 상위 k개 (언어별) — 프롬프트 토큰을 줄이려고 기본 2개
  * @param {string} question
  * @param {{lang?: 'sql'|'pandas'|null, k?: number, exclude?: string[]}} opts  lang 이 정해지면 그 언어만, 아니면 SQL·pandas 각각 k개
  */
-export function retrieve(question, { lang = null, k = 3, exclude = [] } = {}) {
+export function retrieve(question, { lang = null, k = 2, exclude = [] } = {}) {
   const terms = queryTerms(question, exclude);
   const boosted = new Set(BOOSTS.filter(([re]) => re.test(question)).flatMap(([, ids]) => ids));
+  // 샘플 테이블을 둘 이상 말하면 조인 질문 ("orders에 users 붙여서 …")
+  if (new Set([...question.matchAll(/[A-Za-z_]\w*/g)].map((m) => m[0].toLowerCase()).filter((w) => TABLE_NAMES.has(w))).size >= 2) {
+    ['sql:inner-join', 'sql:left-join', 'pandas:merge'].forEach((id) => boosted.add(id));
+  }
   const scored = items.map((x) => {
     const score = terms.reduce((s, [t, w]) => s + w * ((x.head.includes(t) ? 3 : 0) + (x.body.includes(t) ? 1 : 0)), 0)
       + (boosted.has(`${x.lang}:${x.it.id}`) ? 20 : 0)
@@ -100,12 +107,7 @@ export function refSnippet(lang, id) {
   const it = find(lang, id);
   if (!it) return '';
   const ex = it.examples?.[0]?.code?.trim() || '';
-  return `[${lang}:${id}] ${it.title} — ${it.summary}\n문법:\n${it.syntax.trim()}\n예제:\n${ex.length > 700 ? `${ex.slice(0, 700)}\n…` : ex}`;
-}
-
-/** 시스템 프롬프트용 전체 목차 (id와 제목만) — 모델이 used_refs 에 실제 id 를 쓰도록 */
-export function catalog() {
-  return REF_LANGS.map((L) => `${L.name}: ${L.items.map((it) => `${L.id}:${it.id} (${it.title})`).join(' | ')}`).join('\n');
+  return `[${lang}:${id}] ${it.title} — ${it.summary}\n문법:\n${it.syntax.trim()}\n예제:\n${ex.length > 400 ? `${ex.slice(0, 400)}\n…` : ex}`;
 }
 
 export function refExists(key) {

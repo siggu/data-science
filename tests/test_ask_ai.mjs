@@ -8,15 +8,15 @@ let n = 0;
 const test = (name, fn) => { fn(); n++; console.log(`  ok  ${name}`); };
 const keys = (refs) => refs.map((r) => `${r.lang}:${r.id}`);
 
-test('요청: Haiku 5.5, JSON 스키마 출력, 시스템 프롬프트 캐시, 샘플링 파라미터 없음', () => {
+test('요청: Haiku 5.5, JSON 스키마 출력, 짧은 시스템 프롬프트, 샘플링 파라미터 없음', () => {
   const { params } = buildRequest({ question: 'orders에서 payment_method별 total_amount 합계' });
   assert.equal(params.model, 'claude-haiku-5-5');
   assert.equal(MODEL, 'claude-haiku-5-5');
   assert.equal(params.output_config.format.type, 'json_schema');
   assert.equal(params.output_config.effort, 'low');
   assert.deepEqual(params.thinking, { type: 'adaptive' });
-  assert.equal(params.system[0].cache_control.type, 'ephemeral');
-  assert.ok(params.system[0].text.includes('sql:group-by'), '시스템 프롬프트에 레퍼런스 목차');
+  assert.equal(typeof params.system, 'string');
+  assert.ok(params.system.length < 1500, `시스템 프롬프트는 짧게 (지금 ${params.system.length}자)`);
   for (const k of ['temperature', 'top_p', 'top_k']) assert.ok(!(k in params));
   const schema = params.output_config.format.schema;
   assert.equal(schema.additionalProperties, false);
@@ -53,6 +53,22 @@ test('RAG: 질문에 맞는 레퍼런스를 고름', () => {
   assert.ok(keys(retrieve('두 테이블 조인')).some((k) => /join|merge/.test(k)));
   assert.ok(keys(retrieve('월별 매출 추이')).some((k) => /date|dt-accessor|resample/.test(k)));
   assert.equal(retrieve('점심 메뉴 추천').length, 0);
+});
+
+test('RAG: "붙여서"가 문자열 이어 붙이기인지 테이블 조인인지 구분', () => {
+  const s = keys(retrieve('결과에 문자 붙여서 출력하는 법'));
+  assert.ok(s.includes('sql:string-funcs') && s.includes('pandas:str-accessor'), s.join(','));
+  assert.ok(!s.some((k) => /join|merge/.test(k)), s.join(','));
+  assert.ok(keys(retrieve('매출 뒤에 원 단위 붙이기')).includes('sql:string-funcs'));
+  assert.ok(keys(retrieve('orders에 users 붙여서 채널별 매출')).includes('sql:inner-join'));
+  assert.ok(keys(retrieve('주문 테이블과 유저 테이블 합치기')).includes('pandas:merge'));
+});
+
+test('RAG: 프롬프트에는 언어별 2개까지만', () => {
+  for (const q of ['채널별 매출 합계', '월별 매출 추이와 전월 대비 증감률', '부서별 급여 상위 2명']) {
+    const r = retrieve(q);
+    assert.ok(r.filter((x) => x.lang === 'sql').length <= 2 && r.filter((x) => x.lang === 'pandas').length <= 2, q);
+  }
 });
 
 test('응답 해석: JSON → 답변, 없는 레퍼런스 id 는 버림', () => {
