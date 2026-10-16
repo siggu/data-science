@@ -17,14 +17,19 @@ trap 'rm -rf "$TMP"' EXIT
 DUCKDB_VER="1.32.0"
 PYODIDE_VER="0.29.5"
 CM_VER="5.65.16"
+ANTHROPIC_VER="0.135.0"   # web/assets/js/config.js 의 VERSIONS.anthropic 과 같게
 
 echo "→ npm 패키지 설치 (임시 폴더)"
 cd "$TMP"
 npm init -y >/dev/null
-npm install --silent "@duckdb/duckdb-wasm@${DUCKDB_VER}" "pyodide@${PYODIDE_VER}" "codemirror@${CM_VER}" esbuild
+npm install --silent "@duckdb/duckdb-wasm@${DUCKDB_VER}" "pyodide@${PYODIDE_VER}" "codemirror@${CM_VER}" "@anthropic-ai/sdk@${ANTHROPIC_VER}" esbuild
 
 rm -rf "$OUT"
-mkdir -p "$OUT/duckdb" "$OUT/pyodide" "$OUT/codemirror/mode/sql" "$OUT/codemirror/mode/python"
+mkdir -p "$OUT/duckdb" "$OUT/pyodide" "$OUT/codemirror/mode/sql" "$OUT/codemirror/mode/python" "$OUT/anthropic"
+
+echo "→ Anthropic SDK (질문하기 AI, 브라우저용 ESM 번들)"
+printf "export { default } from '@anthropic-ai/sdk';\nexport * from '@anthropic-ai/sdk';\n" > anthropic-entry.mjs
+npx esbuild anthropic-entry.mjs --bundle --format=esm --platform=browser --log-level=warning --outfile="$OUT/anthropic/sdk.bundle.mjs"
 
 echo "→ DuckDB-WASM (apache-arrow 포함 ESM 번들)"
 D=node_modules/@duckdb/duckdb-wasm/dist
