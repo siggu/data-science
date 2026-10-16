@@ -2,7 +2,7 @@
 // - 문법 레퍼런스에서 관련 항목만 골라 프롬프트에 넣어(RAG) 토큰을 줄이고, 답이 사이트의 문법을 따르게 합니다.
 // - API 키는 이 브라우저(localStorage)에만 저장하고 브라우저에서 Anthropic API 를 직접 호출합니다 (혼자 쓰는 용도).
 import { h, md, store, resultTable } from '../util.js';
-import { askAI, fixWithError, usesOnlySampleTables, MODEL_LABEL } from '../ask/ai.js';
+import { askAI, fixWithError, usesOnlySampleTables, diagnose, keyProblem, MODEL_LABEL } from '../ask/ai.js';
 import { refTitle } from '../ask/retrieve.js';
 import { runSQL } from '../engines.js';
 import { renderError, loadingLine } from '../components.js';
@@ -20,6 +20,25 @@ const EXAMPLES = [
 const KIND = { code: ['코드 답변', 'ok'], concept: ['개념 설명', 'accent'], out_of_scope: ['범위 밖 질문', 'lv-3'] };
 const usd = (x) => (x < 0.01 ? `$${x.toFixed(5)}` : `$${x.toFixed(3)}`);
 const maskKey = (k) => (k ? `${k.slice(0, 10)}…${k.slice(-4)}` : '');
+
+/** 연결 진단 버튼 + 결과 목록 (auto: 바로 실행) */
+function diagBox(label, auto = false) {
+  const out = h('div', { class: 'ask-diag' });
+  const btn = h('button', { class: 'btn ghost sm', type: 'button' }, label);
+  const run = async () => {
+    btn.disabled = true;
+    out.replaceChildren(loadingLine('api.anthropic.com 연결을 확인하는 중…'));
+    const { checks, hint } = await diagnose(store.get(KEY_KEY, ''));
+    out.replaceChildren(
+      h('ul', { class: 'ask-diag-list' }, checks.map((c) => h('li', { class: c.ok ? 'ok' : 'bad' },
+        h('span', { 'aria-hidden': 'true' }, c.ok ? '✓' : '✗'), ' ', h('b', null, c.label), c.detail ? h('span', { class: 'muted' }, ` — ${c.detail}`) : null))),
+      h('div', { class: 'callout info small md', html: md(hint) }));
+    btn.disabled = false;
+  };
+  btn.addEventListener('click', run);
+  if (auto) queueMicrotask(run);
+  return h('div', { class: 'stack', style: { marginTop: '8px', gap: '6px' } }, h('div', null, btn), out);
+}
 
 export default {
   id: 'ask',
@@ -75,7 +94,8 @@ export default {
     effort.addEventListener('change', () => store.set('ask:effort', effort.value));
     const save = () => {
       const v = input.value.trim();
-      if (!/^sk-ant-/.test(v)) { input.setCustomValidity('sk-ant- 로 시작하는 키를 넣어 주세요.'); input.reportValidity(); return; }
+      const kp = keyProblem(v);
+      if (kp) { input.setCustomValidity(kp); input.reportValidity(); return; }
       store.set(KEY_KEY, v);
       this.settings.open = false;
       this.renderSettings();
@@ -90,6 +110,7 @@ export default {
           h('button', { class: 'btn', type: 'button', onclick: save }, key ? '키 바꾸기' : '저장'),
           key ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { if (confirm('저장된 API 키를 지울까요?')) { store.set(KEY_KEY, ''); this.renderSettings(); } } }, '키 지우기') : null),
         h('label', { class: 'row small' }, '답변 방식: ', effort),
+        key ? diagBox('연결 테스트 (비용 없음)') : null,
         h('div', { class: 'callout info small md', html: md([
           `- 모델: **${MODEL_LABEL}** (질문 1건에 보통 $0.001 미만)`,
           '- 키는 [Anthropic Console](https://console.anthropic.com/settings/keys)에서 만들 수 있습니다. **이 브라우저에만 저장**되고 Anthropic API 외에는 어디로도 보내지 않습니다.',
@@ -123,13 +144,15 @@ export default {
     try {
       const res = await call();
       this.live.set(entry.id, res);
-      Object.assign(entry, { status: 'done', answer: res.answer, cost: res.cost, sampleTables: res.sampleTables, error: null });
+      Object.assign(entry, { status: 'done', answer: res.answer, cost: res.cost, sampleTables: res.sampleTables, error: null, errorKind: null, errorDetail: null });
       this.addSpent(res.cost.usd);
     } catch (e) {
-      Object.assign(entry, { status: 'error', error: e.message || String(e) });
+      Object.assign(entry, { status: 'error', error: e.message || String(e), errorKind: e.kind || null, errorDetail: e.detail || null });
+      this.freshError = entry.id; // 방금 난 연결 오류는 진단을 바로 실행 (기록에서 다시 그릴 때는 버튼만)
     }
     this.save();
     this.repaint(entry);
+    this.freshError = null;
   },
 
   save() { store.set(HISTORY_KEY, this.history.map(({ ...e }) => e)); },
@@ -167,7 +190,9 @@ export default {
     if (entry.status === 'error' || !entry.answer) {
       const apiKey = store.get(KEY_KEY, '');
       return [
-        h('div', { class: 'callout bad small' }, entry.error || '답변을 받지 못했습니다.'),
+        h('div', { class: 'callout bad small' }, entry.error || '답변을 받지 못했습니다.',
+          entry.errorDetail ? h('div', { class: 'small muted ask-err-detail' }, `원인: ${entry.errorDetail}`) : null),
+        entry.errorKind === 'connection' || entry.errorKind === 'key' ? diagBox('연결 진단', entry.errorKind === 'connection' && this.freshError === entry.id) : null,
         h('div', { class: 'row', style: { marginTop: '8px' } },
           h('button', { class: 'btn sm', type: 'button', onclick: () => this.run(entry, () => askAI({ apiKey: store.get(KEY_KEY, ''), question: entry.question, code: entry.code, lang: entry.lang, effort: store.get('ask:effort', 'low') })) }, '다시 시도'),
           !apiKey ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { this.settings.open = true; this.settings.scrollIntoView({ block: 'center' }); } }, 'API 키 저장하기') : null),

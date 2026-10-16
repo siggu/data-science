@@ -585,6 +585,11 @@ textarea.mono { font-family: var(--mono); font-size: .84rem; }
 .ask-edit { margin-top: 8px; }
 .ask-edit > summary { cursor: pointer; font-size: .84rem; color: var(--accent); font-weight: 600; }
 .ask-a pre { margin: 8px 0 0; }
+.ask-err-detail { margin-top: 4px; word-break: break-all; }
+.ask-diag-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .85rem; }
+.ask-diag-list li { overflow-wrap: anywhere; }
+.ask-diag-list li.ok > span:first-child { color: var(--good); font-weight: 700; }
+.ask-diag-list li.bad > span:first-child { color: var(--bad); font-weight: 700; }
 .ask-refs, .ask-alts { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ask-refs .chip, .ask-alts .chip { font-size: .78rem; white-space: normal; max-width: 100%; text-align: left; }
 .ask-ref-list ul { margin: 4px 0 0; }

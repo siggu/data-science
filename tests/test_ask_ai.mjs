@@ -1,7 +1,7 @@
 // 질문하기(AI) 단위 테스트 — API 를 호출하지 않고 요청 구성 · 응답 해석 · 레퍼런스 검색(RAG)을 검사합니다.
 //   node tests/test_ask_ai.mjs
 import assert from 'node:assert/strict';
-import { buildRequest, parseAnswer, usesOnlySampleTables, costOf, MODEL } from '../web/assets/js/ask/ai.js';
+import { buildRequest, parseAnswer, usesOnlySampleTables, costOf, keyProblem, MODEL } from '../web/assets/js/ask/ai.js';
 import { retrieve } from '../web/assets/js/ask/retrieve.js';
 
 let n = 0;
@@ -81,6 +81,17 @@ test('샘플 테이블만 쓰는 SQL 판별 (CTE 제외)', () => {
 test('비용 계산 (Haiku 5.5: 입력 $0.10 · 출력 $0.50 / 100만 토큰)', () => {
   const c = costOf({ input_tokens: 1_000_000, output_tokens: 1_000_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 });
   assert.equal(Number(c.usd.toFixed(6)), 0.6);
+});
+
+test('API 키 형식 검사 (공백·줄바꿈·한글이 섞이면 브라우저가 요청을 막으므로 저장 전에 거름)', () => {
+  const good = `sk-ant-api03-${'aB3_-x'.repeat(16)}`;
+  assert.equal(keyProblem(good), '');
+  assert.match(keyProblem(''), /없습니다/);
+  assert.match(keyProblem('api03-abc'), /sk-ant-/);
+  assert.match(keyProblem(`${good.slice(0, 40)} ${good.slice(40)}`), /1개/);
+  assert.match(keyProblem(`${good}\n`), /1개/);
+  assert.match(keyProblem(`${good}ㅁ`), /1개/);
+  assert.match(keyProblem('sk-ant-api03-short'), /짧습니다/);
 });
 
 console.log(`질문하기(AI): ${n}개 테스트 통과`);
