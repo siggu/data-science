@@ -222,22 +222,6 @@ def main() -> int:
             failures.append(f"ref:{lang['id']}: core 항목이 appendix보다 앞에 와야 함")
     print(f"문법 레퍼런스 {n_ref}개 항목 · 예제 {n_ex}개 실행")
 
-    # 질문하기: 샘플 테이블 질문에 대해 엔진이 만든 SQL/pandas 코드가 실제로 실행되는지
-    ask_files = [p.name for p in sorted((ROOT / "tests").glob("ask_cases*.json"))]
-    if ask_files:
-        emitted = [x for name in ask_files for x in json.loads(subprocess.run(
-            ["node", str(ROOT / "tests" / "test_ask.mjs"), "--emit", f"--file={name}"],
-            capture_output=True, text=True, check=True).stdout)]
-        for item in emitted:
-            try:
-                con.execute(item["sql"]).fetchall()
-            except Exception as e:  # noqa: BLE001
-                failures.append(f"질문하기 SQL 실행 오류 ({item['recipe']}) '{item['q']}': {e}")
-            res = asyncio.run(runtime.run_cell(item["pandas"], runtime.fresh_namespace()))
-            if res["error"]:
-                failures.append(f"질문하기 pandas 실행 오류 ({item['recipe']}) '{item['q']}': {res['error'].strip().splitlines()[-1]}")
-        print(f"질문하기 생성 코드 {len(emitted)}건 × SQL·pandas 실행")
-
     print(f"\n문제 {len(data['problems'])}개 · 면접 질문 {len(data['questions'])}개 · 케이스 {len(data['cases'])}개 · 퀴즈 {len(data['quiz'])}개 · 자격증 문제 {sum(len(c['questions']) for c in data['certs'])}개")
     if failures:
         print("\nFAILED:")

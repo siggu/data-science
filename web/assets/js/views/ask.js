@@ -1,220 +1,223 @@
-// 질문하기: 자연어 질문 + (선택) 내 코드 → 정해진 문법(레시피) 안에서 SQL/pandas 코드로 답변
-// 해석은 브라우저 안의 규칙 엔진(ask/engine.js)이 합니다. 서버·API 호출이 없어 비용이 들지 않습니다.
-import { h, md, store } from '../util.js';
-import { understand, build, RECIPES } from '../ask/engine.js';
-import { describeSlots } from '../ask/recipes.js';
-import { AGG_LABEL, UNIT_LABEL } from '../ask/lexicon.js';
-import { REF_LANGS } from '../data/reference.js';
+// 질문하기 (AI): 질문 + (선택) 내 코드 → Claude Haiku 5.5 가 SQL · pandas 코드로 답변
+// - 문법 레퍼런스에서 관련 항목만 골라 프롬프트에 넣어(RAG) 토큰을 줄이고, 답이 사이트의 문법을 따르게 합니다.
+// - API 키는 이 브라우저(localStorage)에만 저장하고 브라우저에서 Anthropic API 를 직접 호출합니다 (혼자 쓰는 용도).
+import { h, md, store, resultTable } from '../util.js';
+import { askAI, fixWithError, usesOnlySampleTables, MODEL_LABEL } from '../ask/ai.js';
+import { refTitle } from '../ask/retrieve.js';
+import { runSQL } from '../engines.js';
+import { renderError, loadingLine } from '../components.js';
 
 const HISTORY_KEY = 'ask:history';
+const KEY_KEY = 'ask:apiKey';
+const SPENT_KEY = 'ask:spentUsd';
 const EXAMPLES = [
   'orders에서 payment_method별 total_amount 합계',
   'orders에서 status가 completed인 주문의 월별 매출 합계',
   'users에서 channel별 유저 수',
-  'orders에서 user_id별 total_amount 합계 상위 5명',
-  'ab_test에서 variant별 전환율',
-  'employees에서 dept_id별 salary 순위',
+  'employees에서 부서별 급여 상위 2명',
+  'SQL에서 WHERE와 HAVING 차이가 뭔가요?',
 ];
-const CONF = { high: ['확실', 'ok'], medium: ['확인 필요', 'lv-2'], low: ['추측', 'lv-3'] };
-const refTitle = (lang, id) => REF_LANGS.find((l) => l.id === lang)?.items.find((i) => i.id === id)?.title || id;
+const KIND = { code: ['코드 답변', 'ok'], concept: ['개념 설명', 'accent'], out_of_scope: ['범위 밖 질문', 'lv-3'] };
+const usd = (x) => (x < 0.01 ? `$${x.toFixed(5)}` : `$${x.toFixed(3)}`);
+const maskKey = (k) => (k ? `${k.slice(0, 10)}…${k.slice(-4)}` : '');
 
 export default {
   id: 'ask',
   title: '질문하기',
 
   mount(el) {
-    this.history = store.get(HISTORY_KEY, []);
+    // 답변을 기다리다 페이지를 닫은 질문은 '중단됨'으로 표시 (다시 시도 가능)
+    this.history = store.get(HISTORY_KEY, []).map((e) => (e.status === 'loading' ? { ...e, status: 'error', error: '답변을 기다리는 중에 페이지를 벗어났습니다.' } : e));
+    this.live = new Map(); // 이번 세션에서 받은 답의 대화 내용 (오류 고쳐 달라고 할 때 사용)
     this.thread = h('div', { class: 'ask-thread' });
-    this.q = h('textarea', { rows: 2, placeholder: '예: si_do_name별 sales_qty 합을 구하는 방법', 'aria-label': '질문' });
-    this.code = h('textarea', { rows: 6, class: 'mono', placeholder: '내 코드, CREATE TABLE 문, CSV 헤더, 또는 "컬럼: a, b, c" 를 붙여 넣으면 실제 컬럼 이름으로 답합니다.', 'aria-label': '내 코드 또는 테이블 정보' });
+    this.q = h('textarea', { rows: 2, placeholder: '예: 이 코드에서 si_do_name별 sales_qty 합을 구하는 방법', 'aria-label': '질문' });
+    this.code = h('textarea', { rows: 6, class: 'mono', placeholder: '내 코드, CREATE TABLE 문, CSV 헤더, df.columns · df.info() 출력 등을 붙여 넣으면 실제 테이블·컬럼 이름으로 답합니다.', 'aria-label': '내 코드 또는 테이블 정보' });
     this.code.value = store.get('ask:code', '');
     this.code.addEventListener('input', () => store.set('ask:code', this.code.value));
     this.lang = h('select', { 'aria-label': '답변 언어', style: { width: 'auto' } },
-      h('option', { value: 'auto' }, '언어: 자동'), h('option', { value: 'sql' }, 'SQL 먼저'), h('option', { value: 'pandas' }, 'pandas 먼저'));
+      h('option', { value: 'auto' }, 'SQL + pandas'), h('option', { value: 'sql' }, 'SQL만'), h('option', { value: 'pandas' }, 'pandas만'));
     this.lang.value = store.get('ask:lang', 'auto');
     this.lang.addEventListener('change', () => store.set('ask:lang', this.lang.value));
-    const submit = () => this.ask();
     this.q.addEventListener('keydown', (e) => {
-      // 한글 입력 중(조합 중) Enter 는 무시
-      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && (e.ctrlKey || e.metaKey || !e.shiftKey)) { e.preventDefault(); submit(); }
+      // 한글 조합 중 Enter 는 무시, Shift+Enter 는 줄바꿈
+      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && !e.shiftKey) { e.preventDefault(); this.ask(); }
     });
-    const codeBox = h('details', { class: 'ask-code', open: !!this.code.value || null },
-      h('summary', null, '내 코드 / 테이블 정보 붙여넣기 (선택)'), this.code);
+    this.settings = h('details', { class: 'card ask-settings', open: !store.get(KEY_KEY, '') || null });
+    this.spentEl = h('span', { class: 'small muted' });
+    this.renderSettings();
 
     el.append(
       h('div', { class: 'page-head' },
         h('h1', null, 'SQL · pandas 질문하기'),
-        h('p', null, '"어떤 컬럼별로 무엇을 구하고 싶은지"를 물어보면, 정해진 문법 안에서 SQL과 pandas 코드로 답합니다. 내 코드를 붙여 넣으면 그 안의 테이블·컬럼 이름을 그대로 씁니다. 답변은 브라우저 안의 규칙 엔진이 만들어서 서버 비용이 들지 않습니다.')),
+        h('p', null, `"어떤 컬럼별로 무엇을 구하고 싶은지" 물어보면 ${MODEL_LABEL}가 SQL과 pandas 코드로 답합니다. 질문과 관련된 문법 레퍼런스 항목을 함께 보내 답이 사이트의 문법을 따르게 하고, 샘플 테이블 질문이면 SQL을 바로 실행해 결과까지 보여줍니다.`)),
       h('div', { class: 'ask-wrap' },
+        this.settings,
         this.thread,
         h('div', { class: 'card ask-composer' },
-          this.q, codeBox,
+          this.q,
+          h('details', { class: 'ask-code', open: !!this.code.value || null }, h('summary', null, '내 코드 / 테이블 정보 붙여넣기 (선택)'), this.code),
           h('div', { class: 'row between' },
             h('div', { class: 'row' }, this.lang, h('span', { class: 'small muted' }, 'Enter 보내기 · Shift+Enter 줄바꿈')),
             h('div', { class: 'row' },
               h('button', { class: 'btn ghost sm', type: 'button', onclick: () => this.clear() }, '기록 지우기'),
-              h('button', { class: 'btn primary', type: 'button', onclick: submit }, '질문하기'))),
+              h('button', { class: 'btn primary', type: 'button', onclick: () => this.ask() }, '질문하기'))),
           h('div', { class: 'ask-examples' }, h('span', { class: 'small muted' }, '샘플 데이터로 해보기: '),
-            // 예시는 샘플 테이블 질문이라 붙여 넣은 코드 없이 물어봄
             EXAMPLES.map((x) => h('button', { class: 'chip', type: 'button', onclick: () => { this.q.value = x; this.ask({ code: '' }); } }, x))))));
     this.renderThread();
   },
 
-  ask({ code } = {}) {
+  renderSettings() {
+    const key = store.get(KEY_KEY, '');
+    const input = h('input', { type: 'password', placeholder: 'sk-ant-…', autocomplete: 'off', 'aria-label': 'Anthropic API 키', value: '' });
+    const effort = h('select', { 'aria-label': '답변 방식', style: { width: 'auto' } },
+      h('option', { value: 'low' }, '빠르고 저렴하게 (기본)'), h('option', { value: 'medium' }, '조금 더 꼼꼼하게'));
+    effort.value = store.get('ask:effort', 'low');
+    effort.addEventListener('change', () => store.set('ask:effort', effort.value));
+    const save = () => {
+      const v = input.value.trim();
+      if (!/^sk-ant-/.test(v)) { input.setCustomValidity('sk-ant- 로 시작하는 키를 넣어 주세요.'); input.reportValidity(); return; }
+      store.set(KEY_KEY, v);
+      this.settings.open = false;
+      this.renderSettings();
+    };
+    input.addEventListener('input', () => input.setCustomValidity(''));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+    this.spentEl.textContent = `지금까지 사용: ${usd(store.get(SPENT_KEY, 0))}`;
+    this.settings.replaceChildren(
+      h('summary', null, h('b', null, 'AI 설정'), ' ', key ? h('span', { class: 'badge ok' }, `키 저장됨 ${maskKey(key)}`) : h('span', { class: 'badge lv-3' }, 'API 키 필요'), ' ', this.spentEl),
+      h('div', { class: 'stack', style: { marginTop: '10px' } },
+        h('div', { class: 'row', style: { flexWrap: 'nowrap' } }, input,
+          h('button', { class: 'btn', type: 'button', onclick: save }, key ? '키 바꾸기' : '저장'),
+          key ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { if (confirm('저장된 API 키를 지울까요?')) { store.set(KEY_KEY, ''); this.renderSettings(); } } }, '키 지우기') : null),
+        h('label', { class: 'row small' }, '답변 방식: ', effort),
+        h('div', { class: 'callout info small md', html: md([
+          `- 모델: **${MODEL_LABEL}** (질문 1건에 보통 $0.001 미만)`,
+          '- 키는 [Anthropic Console](https://console.anthropic.com/settings/keys)에서 만들 수 있습니다. **이 브라우저에만 저장**되고 Anthropic API 외에는 어디로도 보내지 않습니다.',
+          '- 질문과 붙여 넣은 코드는 Anthropic API로 전송됩니다. 회사 코드라면 보안 정책을 먼저 확인하고, 실제 데이터 값은 붙여 넣지 마세요.',
+        ].join('\n')) })));
+  },
+
+  addSpent(x) {
+    store.set(SPENT_KEY, store.get(SPENT_KEY, 0) + x);
+    this.spentEl.textContent = `지금까지 사용: ${usd(store.get(SPENT_KEY, 0))}`;
+  },
+
+  async ask({ code } = {}) {
     const question = this.q.value.trim();
     if (!question) { this.q.focus(); return; }
-    const entry = { question, code: code ?? this.code.value, lang: this.lang.value, at: Date.now() };
-    this.history = [...this.history, entry].slice(-15);
-    store.set(HISTORY_KEY, this.history);
+    const apiKey = store.get(KEY_KEY, '');
+    if (!apiKey) { this.settings.open = true; this.settings.scrollIntoView({ block: 'center' }); return; }
+    const entry = { id: Date.now(), question, code: code ?? this.code.value, lang: this.lang.value, status: 'loading' };
+    this.history = [...this.history, entry].slice(-20);
     this.q.value = '';
-    const node = this.renderEntry(entry, this.history.length - 1);
+    const node = this.renderEntry(entry);
+    this.thread.querySelector('.ask-empty')?.remove();
     this.thread.append(node);
     node.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    await this.run(entry, () => askAI({ apiKey, question, code: entry.code, lang: entry.lang, effort: store.get('ask:effort', 'low') }));
   },
+
+  async run(entry, call) {
+    entry.status = 'loading';
+    this.repaint(entry);
+    try {
+      const res = await call();
+      this.live.set(entry.id, res);
+      Object.assign(entry, { status: 'done', answer: res.answer, cost: res.cost, sampleTables: res.sampleTables, error: null });
+      this.addSpent(res.cost.usd);
+    } catch (e) {
+      Object.assign(entry, { status: 'error', error: e.message || String(e) });
+    }
+    this.save();
+    this.repaint(entry);
+  },
+
+  save() { store.set(HISTORY_KEY, this.history.map(({ ...e }) => e)); },
 
   clear() {
     if (!this.history.length || !confirm('질문 기록을 모두 지울까요?')) return;
     this.history = [];
-    store.set(HISTORY_KEY, []);
+    this.live.clear();
+    this.save();
     this.renderThread();
-  },
-
-  save(idx, patch) {
-    if (!this.history[idx]) return;
-    this.history[idx] = { ...this.history[idx], ...patch };
-    store.set(HISTORY_KEY, this.history);
   },
 
   renderThread() {
     this.thread.replaceChildren(...(this.history.length
-      ? this.history.map((e, i) => this.renderEntry(e, i))
-      : [h('div', { class: 'card empty ask-empty' }, '아직 질문이 없습니다. 아래에 질문을 적거나 예시를 눌러 보세요.')]));
+      ? this.history.map((e) => this.renderEntry(e))
+      : [h('div', { class: 'card empty ask-empty' }, '아직 질문이 없습니다. API 키를 저장한 뒤 아래에 질문을 적거나 예시를 눌러 보세요.')]));
   },
 
-  renderEntry(entry, idx) {
-    const info = understand(entry.question, entry.code, { lang: entry.lang });
+  repaint(entry) {
+    const node = this.thread.querySelector(`[data-entry="${entry.id}"] .ask-a`);
+    if (node) node.replaceChildren(...this.answerBody(entry).filter(Boolean));
+  },
+
+  renderEntry(entry) {
     const userBubble = h('div', { class: 'ask-q' },
       h('div', { class: 'ask-q-text' }, entry.question),
       entry.code?.trim() ? h('details', { class: 'ask-q-code' }, h('summary', null, `코드 ${entry.code.trim().split('\n').length}줄 첨부`), h('pre', { class: 'no-enhance' }, entry.code.trim())) : null);
     const answer = h('div', { class: 'card ask-a' });
-    // 저장된 수정 내용(다른 해석 선택, 빈칸 수정)이 있으면 그것으로
-    let current = entry.recipe ? { recipe: entry.recipe, slots: entry.slots } : info.best;
-    // (replaceChildren 은 null 을 "null" 글자로 넣으므로 빈 항목은 걸러냄)
-    const paint = () => answer.replaceChildren(...this.answerBody(info, current, (next) => { current = next; this.save(idx, next); paint(); }).filter(Boolean));
-    paint();
-    return h('div', { class: 'ask-entry' }, userBubble, answer);
+    answer.append(...this.answerBody(entry).filter(Boolean));
+    return h('div', { class: 'ask-entry', 'data-entry': entry.id }, userBubble, answer);
   },
 
-  answerBody(info, cur, change) {
-    if (!cur) {
+  answerBody(entry) {
+    if (entry.status === 'loading') return [loadingLine(`${MODEL_LABEL}가 답변을 만드는 중…`)];
+    if (entry.status === 'error' || !entry.answer) {
+      const apiKey = store.get(KEY_KEY, '');
       return [
-        h('div', { class: 'ask-head' }, h('b', null, '정해진 레시피로는 답하기 어려운 질문이에요'), h('span', { class: 'badge lv-3' }, '레시피 없음')),
-        h('p', { class: 'small muted' }, '"X별 Y의 합계", "Z가 100 이상인 행", "월별 매출", "그룹별 상위 3개"처럼 기준 컬럼과 구하려는 값을 함께 적으면 코드로 답할 수 있습니다.'),
-        this.refList(info.refs, '관련 있어 보이는 문법'),
+        h('div', { class: 'callout bad small' }, entry.error || '답변을 받지 못했습니다.'),
+        h('div', { class: 'row', style: { marginTop: '8px' } },
+          h('button', { class: 'btn sm', type: 'button', onclick: () => this.run(entry, () => askAI({ apiKey: store.get(KEY_KEY, ''), question: entry.question, code: entry.code, lang: entry.lang, effort: store.get('ask:effort', 'low') })) }, '다시 시도'),
+          !apiKey ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { this.settings.open = true; this.settings.scrollIntoView({ block: 'center' }); } }, 'API 키 저장하기') : null),
       ];
     }
-    const recipe = RECIPES.find((r) => r.id === cur.recipe);
-    const out = build(cur.recipe, cur.slots, info);
-    const conf = cur === info.best ? info.confidence : 'high';
-    const [cLabel, cCls] = CONF[conf];
-    const primary = info.lang === 'pandas' ? 'pandas' : 'sql';
-    const order = primary === 'sql' ? ['sql', 'pandas'] : ['pandas', 'sql'];
-    let showing = primary;
-    const codeBox = h('div');
+    const a = entry.answer;
+    const [kLabel, kCls] = KIND[a.kind] || KIND.code;
+    const langs = [['sql', a.sql], ['pandas', a.pandas]].filter(([, c]) => c);
+    let showing = langs[0]?.[0];
     const tabs = h('div', { class: 'seg ask-tabs', role: 'tablist' });
+    const codeBox = h('div');
     const paintCode = () => {
-      tabs.replaceChildren(...order.map((l) => h('button', {
+      tabs.replaceChildren(...langs.map(([l]) => h('button', {
         type: 'button', role: 'tab', class: l === showing ? 'on' : '', 'aria-selected': String(l === showing),
         onclick: () => { showing = l; paintCode(); },
       }, l === 'sql' ? 'SQL' : 'pandas')));
-      codeBox.replaceChildren(h('pre', null, h('code', { 'data-lang': showing === 'sql' ? 'sql' : 'python' }, showing === 'sql' ? out.sql : out.pandas)));
+      const cur = langs.find(([l]) => l === showing);
+      codeBox.replaceChildren(cur ? h('pre', null, h('code', { 'data-lang': showing === 'sql' ? 'sql' : 'python' }, cur[1])) : '');
     };
     paintCode();
-    const alts = info.candidates.filter((c) => c.recipe !== cur.recipe).slice(0, 3);
-    const notes = [...info.assumptions, ...out.notes];
+    // 샘플 테이블만 쓰는 SQL 이면 바로 실행해 결과 미리보기
+    const preview = h('div', { class: 'ask-preview' });
+    if (a.sql && usesOnlySampleTables(a.sql)) this.preview(entry, preview);
     return [
-      h('div', { class: 'ask-head' },
-        h('div', null, h('b', null, recipe.title), h('div', { class: 'small muted' }, recipe.desc)),
-        h('span', { class: `badge ${cCls}`, title: '규칙 엔진의 해석 확신도' }, cLabel)),
-      h('div', { class: 'ask-interp small' }, h('span', { class: 'muted' }, '해석: '), describeSlots(cur.recipe, cur.slots) || '—'),
-      this.slotEditor(cur, info, change),
-      h('div', { class: 'row between', style: { marginTop: '10px' } }, tabs, h('span', { class: 'small muted' }, info.table ? `테이블: ${info.table}` : '')),
-      codeBox,
-      h('div', { class: 'ask-refs small' }, h('span', { class: 'muted' }, '사용한 문법: '),
-        order.flatMap((l) => recipe.refs[l].map((id) => h('a', { class: 'chip', href: `#/reference?lang=${l}&id=${id}` }, `${l === 'sql' ? 'SQL' : 'pandas'} · ${refTitle(l, id)}`)))),
-      notes.length ? h('div', { class: 'callout warn md small', style: { marginTop: '10px' }, html: md(notes.map((n) => `- ${n}`).join('\n')) }) : null,
-      alts.length ? h('div', { class: 'ask-alts small' }, h('span', { class: 'muted' }, '다른 해석: '),
-        alts.map((a) => h('button', { class: 'chip', type: 'button', onclick: () => change({ recipe: a.recipe, slots: a.slots }) }, RECIPES.find((r) => r.id === a.recipe).title))) : null,
-      conf === 'low' && info.refs.length ? this.refList(info.refs, '관련 문법') : null,
+      h('div', { class: 'ask-head' }, h('b', null, a.title), h('span', { class: `badge ${kCls}` }, kLabel)),
+      a.explanation ? h('div', { class: 'md ask-expl', html: md(a.explanation) }) : null,
+      langs.length ? h('div', { class: 'row between', style: { marginTop: '10px' } }, langs.length > 1 ? tabs : h('span', { class: 'small muted' }, langs[0][0] === 'sql' ? 'SQL' : 'pandas')) : null,
+      langs.length ? codeBox : null,
+      preview,
+      a.usedRefs?.length ? h('div', { class: 'ask-refs small' }, h('span', { class: 'muted' }, '참고한 문법: '),
+        a.usedRefs.map((k) => { const [lang, id] = k.split(':'); return h('a', { class: 'chip', href: `#/reference?lang=${lang}&id=${id}` }, `${lang === 'sql' ? 'SQL' : 'pandas'} · ${refTitle(k)}`); })) : null,
+      a.assumptions?.length ? h('div', { class: 'callout warn md small', style: { marginTop: '10px' }, html: md(`**가정한 내용**\n${a.assumptions.map((x) => `- ${x}`).join('\n')}`) }) : null,
+      entry.cost ? h('div', { class: 'small muted ask-cost' }, `${MODEL_LABEL} · 입력 ${entry.cost.tokensIn.toLocaleString()} · 출력 ${entry.cost.tokensOut.toLocaleString()} 토큰 · 약 ${usd(entry.cost.usd)}`) : null,
     ];
   },
 
-  refList(refs, title) {
-    if (!refs.length) return h('p', { class: 'small muted' }, '관련 문법을 찾지 못했습니다. 문법 레퍼런스 탭에서 검색해 보세요.');
-    return h('div', { class: 'ask-ref-list' }, h('div', { class: 'small muted' }, `${title}:`),
-      h('ul', null, refs.map((r) => h('li', null, h('span', { class: 'badge', style: { marginRight: '6px' } }, r.lang === 'sql' ? 'SQL' : 'pandas'), h('a', { href: `#/reference?lang=${r.lang}&id=${r.id}` }, r.title), h('span', { class: 'small muted' }, ` — ${r.summary}`)))));
-  },
-
-  /** 해석 수정: 빈칸을 바꾸면 코드가 바로 다시 만들어짐 */
-  slotEditor(cur, info, change) {
-    const s = cur.slots;
-    const listId = `cols-${Math.random().toString(36).slice(2, 8)}`;
-    const dl = h('datalist', { id: listId }, info.columns.map((c) => h('option', { value: c })));
-    const set = (patch) => change({ recipe: cur.recipe, slots: { ...s, ...patch } });
-    const text = (label, key, { multi = false } = {}) => {
-      const v = multi ? (s[key] || []).join(', ') : (s[key] ?? '');
-      const input = h('input', { type: 'text', value: v, list: listId, 'aria-label': label });
-      input.addEventListener('change', () => {
-        const val = input.value.trim();
-        set({ [key]: multi ? val.split(/\s*,\s*/).filter(Boolean) : (val || null) });
-      });
-      return h('label', { class: 'field' }, label, input);
-    };
-    const select = (label, key, opts) => {
-      const el = h('select', { 'aria-label': label }, opts.map(([v, l]) => h('option', { value: v }, l)));
-      el.value = s[key] ?? opts[0][0];
-      el.addEventListener('change', () => set({ [key]: el.value === '' ? null : el.value }));
-      return h('label', { class: 'field' }, label, el);
-    };
-    const num = (label, key) => {
-      const el = h('input', { type: 'number', min: 1, value: s[key] ?? '', 'aria-label': label });
-      el.addEventListener('change', () => set({ [key]: el.value ? parseInt(el.value, 10) : null }));
-      return h('label', { class: 'field' }, label, el);
-    };
-    const aggOpts = Object.entries(AGG_LABEL);
-    const fields = [];
-    const has = (k) => k in s && s[k] !== undefined;
-    if (has('keys') && cur.recipe !== 'join') fields.push(text('기준 컬럼 (쉼표로 여러 개)', 'keys', { multi: true }));
-    if (has('dateCol')) fields.push(text('날짜 컬럼', 'dateCol'));
-    if (has('unit')) fields.push(select('날짜 단위', 'unit', [['', '(없음 — 행 단위)'], ...Object.entries(UNIT_LABEL)]));
-    if (has('orderCol') && !s.unit) fields.push(text('정렬(순서) 컬럼', 'orderCol'));
-    if (s.metrics?.length) {
-      s.metrics.forEach((m, i) => {
-        const agg = h('select', { 'aria-label': `집계 ${i + 1}` }, aggOpts.map(([v, l]) => h('option', { value: v }, l)));
-        agg.value = m.agg;
-        const col = h('input', { type: 'text', value: m.col || '', list: listId, placeholder: m.agg === 'count' ? '(비우면 행 수)' : '컬럼', 'aria-label': `집계 컬럼 ${i + 1}` });
-        const upd = () => { const ms = s.metrics.slice(); ms[i] = { agg: agg.value, col: col.value.trim() || null }; if (ms[i].agg !== 'count' && !ms[i].col) return; set({ metrics: ms }); };
-        agg.addEventListener('change', upd);
-        col.addEventListener('change', upd);
-        fields.push(h('label', { class: 'field' }, `값 ${s.metrics.length > 1 ? i + 1 : ''}`, h('div', { class: 'row', style: { flexWrap: 'nowrap', gap: '6px' } }, agg, col)));
-      });
-    } else if (has('value')) fields.push(text('값 컬럼', 'value'));
-    if (has('item')) fields.push(text('뽑을 항목 컬럼 (선택)', 'item'));
-    if (has('agg') && !s.metrics) fields.push(select('집계', 'agg', aggOpts));
-    if (has('limit')) fields.push(num('N개', 'limit'));
-    if (has('order')) fields.push(select('정렬', 'order', [['', '(기본)'], ['desc', '큰 값부터'], ['asc', '작은 값부터']]));
-    if (has('window')) fields.push(num('이동 창 크기', 'window'));
-    if (has('index')) fields.push(text('행(index)', 'index'));
-    if (has('columns')) fields.push(text('열(columns)', 'columns'));
-    if (has('right')) fields.push(text('붙일 테이블', 'right'));
-    if (has('key')) fields.push(text('조인 키', 'key'));
-    if (has('how')) fields.push(select('조인 방식', 'how', [['left', 'LEFT (왼쪽 전부)'], ['inner', 'INNER (양쪽 모두)'], ['outer', 'FULL OUTER (전부)']]));
-    if (has('col')) fields.push(text('대상 컬럼', 'col'));
-    if (has('mode')) fields.push(select('처리', 'mode', [['count', '개수 확인'], ['fill', '값 채우기'], ['drop', '행 제거']]));
-    if (has('cols') && cur.recipe !== 'filter') fields.push(text('컬럼 (쉼표로 여러 개)', 'cols', { multi: true }));
-    if (!fields.length) return null;
-    return h('details', { class: 'ask-edit' }, h('summary', null, '해석 고치기 (컬럼·집계·단위 바꾸기)'),
-      h('div', { class: 'field-grid', style: { marginTop: '8px' } }, fields), dl,
-      s.filters?.length ? h('p', { class: 'small muted', style: { margin: '8px 0 0' } }, '조건(WHERE)은 질문 문장에서 읽었습니다. 바꾸려면 질문을 고쳐 다시 물어보세요.') : null);
+  async preview(entry, box) {
+    box.replaceChildren(loadingLine('샘플 데이터에서 SQL 실행 중…'));
+    try {
+      const r = await runSQL(entry.answer.sql);
+      box.replaceChildren(h('div', { class: 'small muted', style: { margin: '8px 0 4px' } }, '샘플 데이터 실행 결과'), resultTable(r, { limit: 20 }));
+    } catch (e) {
+      const prev = this.live.get(entry.id);
+      box.replaceChildren(
+        h('div', { class: 'small muted', style: { margin: '8px 0 4px' } }, '샘플 데이터에서 실행하니 오류가 났습니다'),
+        renderError(e),
+        prev ? h('button', {
+          class: 'btn sm', type: 'button', style: { marginTop: '6px' },
+          onclick: () => this.run(entry, () => fixWithError({ apiKey: store.get(KEY_KEY, ''), prev, error: e.message || String(e) })),
+        }, '오류를 보여주고 고쳐 달라고 하기 (추가 요청 1회)') : h('div', { class: 'small muted' }, '같은 질문을 다시 보내 보세요.'));
+    }
   },
 };

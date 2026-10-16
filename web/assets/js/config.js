@@ -5,6 +5,7 @@ const VERSIONS = {
   duckdb: '1.32.0',
   pyodide: '0.29.5',
   codemirror: '5.65.16',
+  anthropic: '0.135.0',
 };
 
 const cdn = {
@@ -12,6 +13,8 @@ const cdn = {
   duckdbDist: `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${VERSIONS.duckdb}/dist/`,
   pyodide: `https://cdn.jsdelivr.net/pyodide/v${VERSIONS.pyodide}/full/`,
   codemirror: `https://cdnjs.cloudflare.com/ajax/libs/codemirror/${VERSIONS.codemirror}/`,
+  // 질문하기(AI): Anthropic TypeScript SDK (ESM)
+  anthropicSdk: `https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@${VERSIONS.anthropic}/+esm`,
 };
 
 const local = {
@@ -21,6 +24,7 @@ const local = {
   pyodide: new URL('../../vendor/pyodide/', import.meta.url).href,
   pyodidePackages: cdn.pyodide,
   codemirror: new URL('../../vendor/codemirror/', import.meta.url).href,
+  anthropicSdk: new URL('../../vendor/anthropic/sdk.bundle.mjs', import.meta.url).href,
 };
 
 let useLocal = false;
